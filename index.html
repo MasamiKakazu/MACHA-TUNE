@@ -5,11 +5,70 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>MACHA-TUNE</title>
     <link rel="stylesheet" href="/src/style.css">
+    <script type="module" src="/src/quiz.js"></script>
   </head>
   <body>
-    <main>
-      <h1>MACHA-TUNE</h1>
-      <p>新しい「好きな曲」と出会う🎧🎶</p>
+    <header class="site-header" aria-hidden="true"><span class="header-star star-one">✦</span><span class="header-star star-two">✦</span><span class="header-star star-three">✦</span></header>
+    <main class="page-content">
+      <div id="home-screen">
+        <header class="home-header"><h1><img class="home-logo" src="/src/assets/macha-tune-logo.png" alt="MACHA-TUNE"></h1></header>
+        <p class="subtitle">新しい「好きな曲」と出会う</p>
+        <button id="start-quiz" type="button">診断をはじめる</button>
+      </div>
+      <section id="music-quiz" aria-labelledby="first-question" hidden>
+        <button id="restart-quiz" type="button"><span class="restart-icon" aria-hidden="true">↶</span><span>はじめからやり直す</span></button>
+        <img class="quiz-logo" src="/src/assets/macha-tune-logo.png" alt="MACHA-TUNE">
+        <div id="question-content">
+          <h2 id="question-heading" tabindex="-1"></h2>
+          <div class="quiz-progress" aria-label="全6問中の1問目"><span class="progress-label">1 / 6</span><span class="progress-ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+          <div class="quiz-options" role="radiogroup" aria-labelledby="question-heading"></div>
+          <p class="quiz-error" role="status" aria-live="polite" hidden></p>
+          <nav class="question-navigation" aria-label="診断の移動"><button id="previous-question" type="button" hidden>戻る</button><button id="next-question" type="button">次へ</button><button id="show-result" type="button" hidden>診断結果を見る</button></nav>
+        </div>
+      </section>
+      <section id="result-screen" aria-labelledby="result-type" hidden>
+        <img class="result-logo" src="/src/assets/macha-tune-logo.png" alt="MACHA-TUNE">
+        <div class="result-profile">
+          <div class="result-heading-group">
+            <p class="result-eyebrow">あなたの音楽タイプ</p>
+            <h2 id="result-type" tabindex="-1"></h2>
+          </div>
+          <div class="result-character-wrap" aria-hidden="true"><span>✦</span><img class="result-character" alt=""><span>✦</span></div>
+        </div>
+        <p id="result-description"></p>
+        <section class="result-detail" aria-labelledby="result-answer-title">
+          <h3 id="result-answer-title">今回の回答から</h3>
+          <p class="result-question"></p>
+          <blockquote class="result-answer"></blockquote>
+          <p class="result-insight"></p>
+        </section>
+        <section class="result-detail" aria-labelledby="listening-tip-title">
+          <span class="listening-record" aria-hidden="true">♪</span><h3 id="listening-tip-title">次の一曲の楽しみ方</h3>
+          <p class="result-listening-tip"></p>
+        </section>
+        <button id="review-answers" type="button">回答を見直す</button>
+        <button id="open-song-entry" type="button">おすすめ曲を登録する</button>
+      </section>
+      <section id="song-entry-screen" hidden>
+        <img class="result-logo" src="/src/assets/macha-tune-logo.png" alt="MACHA-TUNE">
+        <h2>おすすめ曲を登録</h2>
+        <fieldset class="share-count"><legend>シェアする曲数</legend><label><input type="radio" name="share-count" value="1" checked>1曲をシェア</label><label><input type="radio" name="share-count" value="3">3曲をシェア</label></fieldset>
+        <fieldset id="keep-theme-choice" hidden><legend>1曲にする場合、残すテーマを選んでください</legend><select id="keep-theme-select"></select><button id="confirm-count-change" type="button">このテーマを残す</button><button id="cancel-count-change" type="button">キャンセル</button></fieldset>
+        <div id="song-fields"></div>
+        <label class="display-name-field">表示名（任意）<input id="display-name" maxlength="30" type="text"></label>
+        <p id="song-entry-error" class="quiz-error" role="alert" hidden></p>
+        <button id="preview-share" type="button">プレビューを見る</button>
+        <button id="back-to-result" type="button">結果に戻る</button>
+      </section>
+      <section id="song-preview-screen" hidden>
+        <img class="result-logo" src="/src/assets/macha-tune-logo.png" alt="MACHA-TUNE">
+        <h2>共有前プレビュー</h2>
+        <p id="preview-result-type"></p>
+        <div id="song-preview-content"></div>
+        <button id="edit-songs" type="button">編集に戻る</button>
+        <button id="preview-back-result" type="button">結果に戻る</button>
+      </section>
     </main>
+    <footer class="site-footer" aria-hidden="true"><span class="footer-record"></span></footer>
   </body>
 </html>
