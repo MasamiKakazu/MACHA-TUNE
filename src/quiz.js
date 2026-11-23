@@ -685,7 +685,7 @@ function renderDiscoveryResults(data, shared = false) {
   discoveryShare.textContent = `この${count}曲をSlackで共有`;
   const summary = `${formatDiscoveryGenres(data.genres)} / ${region}`;
   discoverySummary.textContent = shared ? (region === regions[0] ? formatDiscoveryGenres(data.genres) : summary)
-    : count ? summary : `${summary}　この組み合わせの曲はまだ見つかりませんでした`;
+    : `${summary}　${count}曲${count ? '' : '（この組み合わせの曲はまだ見つかりませんでした）'}`;
   if (!count) discoveryRefine.append(discoveryControls);
   else if (discoveryControls.parentElement !== discoveryScreen) discoveryScreen.append(discoveryControls);
   const renderCards = (metadata = new Map()) => {

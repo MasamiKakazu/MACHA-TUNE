@@ -2,6 +2,7 @@ import { songKey, songTrackId } from './song-history.js';
 
 const genre = {
   jpop: 'J-POP', kpop: 'K-POP', pop: 'ポップ', rock: 'ロック',
+  idol: 'アイドルソング', ballad: 'バラード', dance: 'ダンス曲', acoustic: '弾き語り',
   hiphop: 'ヒップホップ', rnb: 'R&B', edm: 'EDM', house: 'ハウス',
   alternative: 'オルタナティブロック', indie: 'インディーロック', punk: 'パンク', metal: 'メタル',
   electro: 'エレクトロ', techno: 'テクノ', trance: 'トランス', dnb: 'ドラムンベース', disco: 'ディスコ',
@@ -10,7 +11,10 @@ const genre = {
 };
 const mood = { lofi: 'Lo-Fi' };
 
-export const mainGenres = [genre.jpop, genre.kpop, genre.pop, genre.rock, genre.hiphop, genre.rnb, genre.edm, genre.house];
+export const mainGenres = [
+  genre.jpop, genre.kpop, genre.pop, genre.rock, genre.hiphop, genre.rnb, genre.edm, genre.house,
+  genre.idol, genre.ballad, genre.dance, genre.acoustic,
+];
 export const extraGenreGroups = [
   { name: 'バンド系', genres: [genre.alternative, genre.indie, genre.punk, genre.metal] },
   { name: 'ダンス・電子音楽', genres: [genre.electro, genre.techno, genre.trance, genre.dnb, genre.disco] },
@@ -63,6 +67,11 @@ const catalog = [
   { id: 1457175657, title: 'MIROH', artist: 'Stray Kids', tags: [genre.kpop, genre.edm], region: '海外', reason: 'ラップからシンセと太いビートが前に出る展開に勢いがあります。' },
   { id: 1569280075, title: 'DUN DUN', artist: 'EVERGLOW', tags: [genre.kpop, genre.edm, genre.dancepop], region: '海外', reason: '鋭いシンセと重い低音が、サビの前後で一気に広がります。' },
   { id: 463402687, title: 'I AM THE BEST', artist: '2NE1', tags: [genre.kpop, genre.edm, genre.electro], region: '海外', reason: '歯切れのよい歌と強い電子ビートが、曲の勢いを作ります。' },
+  { id: 814314114, title: 'ギミチョコ!!', artist: 'BABYMETAL', tags: [genre.idol, genre.rock, genre.metal], region: '国内', reason: '重いギターリフと弾む掛け声が交互に飛び出します。' },
+  { id: 1147516283, title: 'オーケストラ', artist: 'BiSH', tags: [genre.idol, genre.rock, genre.ballad, genre.jpop], region: '国内', reason: '切ない歌声から、ギターとストリングスが重なるサビへ広がります。' },
+  { id: 681020904, title: '恋するフォーチュンクッキー', artist: 'AKB48', tags: [genre.idol, genre.dance, genre.jpop, genre.disco], region: '国内', reason: '軽快なディスコのビートに合わせて踊りたくなる一曲。' },
+  { id: 1537565400, title: 'きっかけ', artist: '乃木坂46', tags: [genre.idol, genre.ballad, genre.jpop], region: '国内', reason: '穏やかなピアノと、サビで重なる歌声が印象的なバラードです。' },
+  { id: 79565507, title: 'Fast Car', artist: 'トレイシー・チャップマン', tags: [genre.acoustic, genre.folk, genre.ballad], region: '海外', reason: '繰り返すアコースティックギターに、語りかけるような歌声が重なります。' },
 ];
 
 export function formatDiscoveryGenres(tags) {
