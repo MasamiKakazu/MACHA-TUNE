@@ -177,7 +177,9 @@ export function buildDiscoveryCatalog() {
     if (!creditsByTitle.has(key)) creditsByTitle.set(key, new Set());
     creditsByTitle.get(key).add(songKey('', artist));
   }
-  const catalog = curatedSongs.map(({ id, ...song }) => ({ id: String(id), appleTrackId: id, ...song }));
+  const catalog = curatedSongs.map(({ id, tags, ...song }) => ({
+    id: String(id), appleTrackId: id, primaryGenre: tags[0], tags, ...song,
+  }));
   const songsByName = new Map(catalog.map(song => [songKey(song.title, song.artist), song]));
   const songsByAppleId = new Map(catalog.map(song => [song.appleTrackId, song]));
 

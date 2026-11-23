@@ -131,6 +131,54 @@ function shuffleSongs(pool) {
   return pool;
 }
 
+const diagnosisGenres = new Set(Object.values(genre));
+const diagnosisFeatures = {
+  lyrics: [/歌詞|物語|語りかけ/, /流れるようなラップ|言葉|韻を踏/],
+  melody: [/メロディ|旋律/, /覚えやすいサビ|一緒に歌える|歌い上げる|耳に残る/],
+  rhythm: [/ビート|リズム|グルーヴ|拍子|キック|裏拍|ドラム|低音|ベース|ピアノループ/, /反復|繰り返|跳ね|跳ぶ|弾む|刻む|揺れ/],
+  atmosphere: [/余韻|余白|雰囲気|音色|響き|静かな間合い|都会的|溶け込|くつろ/, /静か|穏やか|柔らか|ささや/],
+};
+
+export function drawDiagnosisSongs(catalog, registeredSongs, introducedIds, previousIds, typeId) {
+  const features = diagnosisFeatures[typeId];
+  if (!features) return [];
+
+  const groups = new Map();
+  const seenIds = new Set();
+  const seenKeys = new Set();
+  for (const song of findDiscoverySongs(catalog, [], regions[0], registeredSongs)) {
+    const primaryGenre = [song.primaryGenre, ...song.tags].find(tag => diagnosisGenres.has(tag));
+    const [mainFeature, supportingFeature] = features;
+    const reason = song.reason ?? '';
+    const hasMainFeature = mainFeature.test(reason);
+    const hasSupportingFeature = supportingFeature.test(reason);
+    if (!primaryGenre || (!hasMainFeature && !hasSupportingFeature)) continue;
+    if (typeId === 'rhythm' && !hasMainFeature) continue;
+
+    const id = String(song.id);
+    const key = songKey(song.title, song.artist);
+    if (seenIds.has(id) || seenKeys.has(key)) continue;
+    seenIds.add(id);
+    seenKeys.add(key);
+
+    const moodScore = typeId === 'atmosphere' && song.tags.includes(mood.lofi) ? 1 : 0;
+    const score = 2 * Number(hasMainFeature) + Number(hasSupportingFeature) + moodScore;
+    const historyRank = !introducedIds.has(id) ? 0 : previousIds.has(id) ? 2 : 1;
+    const group = groups.get(primaryGenre) ?? { bestScore: 0, entries: [] };
+    group.bestScore = Math.max(group.bestScore, score);
+    group.entries.push({ song, score, historyRank });
+    groups.set(primaryGenre, group);
+  }
+
+  return shuffleSongs([...groups])
+    .sort(([, a], [, b]) => b.bestScore - a.bestScore)
+    .slice(0, 3)
+    .map(([primaryGenre, { entries }]) => {
+      const [{ song }] = shuffleSongs(entries).sort((a, b) => a.historyRank - b.historyRank || b.score - a.score);
+      return { ...song, genre: primaryGenre };
+    });
+}
+
 export function drawDiscoverySongs(candidates, selectedGenres, introducedIds, previousIds, typeId) {
   const preference = listeningPreferences[typeId];
   const score = song => {

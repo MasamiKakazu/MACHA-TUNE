@@ -1,6 +1,6 @@
 import { appleTrackId, appleTrackUrl, createServiceLinks, resolveServiceLinks, savedServiceLinks, spotifyTrackUrl } from './music-links.js';
 import { createSongPreviewControls, getTrackPreview, stopSongPreview } from './song-preview-audio.js';
-import { mainGenres, extraGenreGroups, regions, vocalFilters, formatDiscoveryGenres, findDiscoverySongs, drawDiscoverySongs } from './discovery-catalog.js';
+import { mainGenres, extraGenreGroups, regions, vocalFilters, formatDiscoveryGenres, findDiscoverySongs, drawDiscoverySongs, drawDiagnosisSongs } from './discovery-catalog.js';
 import { largeCatalogArtwork, lookupCatalogTracks, searchCatalogTracks } from './music-catalog.js';
 import { readIntroducedSongIds, readPreviousRecommendationIds, readRegisteredSongs, saveIntroducedSongs, saveRegisteredSongs, songTrackId } from './song-history.js';
 import { decodeCompactPayload, sharedPayloadHash, sharePages } from './share-pages.js';
@@ -64,6 +64,7 @@ const resultInsight = document.querySelector('.result-insight');
 const resultListeningTip = document.querySelector('.result-listening-tip');
 const resultCharacter = document.querySelector('.result-character');
 const diagnosisCards = document.querySelector('#diagnosis-recommendation-cards');
+const diagnosisHeading = document.querySelector('#diagnosis-recommendation-heading');
 const diagnosisStatus = document.querySelector('#diagnosis-recommendation-status');
 const typedDiscovery = document.querySelector('#open-typed-discovery');
 const diagnosisTypeKey = 'macha-tune:diagnosis-type';
@@ -951,12 +952,14 @@ function renderDiagnosisRecommendations(type) {
   if (diagnosisRecommendationType === type) return;
   diagnosisRecommendationRequest?.abort();
   diagnosisCards.replaceChildren();
+  diagnosisHeading.textContent = 'あなたに聴いてほしい曲';
   diagnosisStatus.hidden = false;
   diagnosisStatus.textContent = '選曲リストを読み込んでいます…';
   void loadDiscoveryCatalog().then(catalog => {
     if (resultScreen.hidden || latestDiagnosisType !== type || diagnosisRecommendationType === type) return;
-    const candidates = findDiscoverySongs(catalog, [], regions[0], readRegisteredSongs());
-    const songs = drawAndRemember(candidates, [], type.id);
+    const songs = drawDiagnosisSongs(catalog, readRegisteredSongs(), readIntroducedSongIds(), readPreviousRecommendationIds(), type.id);
+    saveIntroducedSongs(songs);
+    if (songs.length) diagnosisHeading.textContent = `あなたに聴いてほしい${songs.length}曲`;
     diagnosisRecommendationRequest = renderRecommendationCards(diagnosisCards, songs);
     diagnosisRecommendationType = type;
     diagnosisStatus.hidden = songs.length > 0;
