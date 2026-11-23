@@ -99,7 +99,9 @@ let discoveryType;
 let discoveryFromDiagnosis = false;
 const discoveryRefine = document.querySelector('#discovery-refine');
 const discoveryControls = document.querySelector('#discovery-controls');
+// Theme positions and type codes are part of the shared URL format.
 const themes = ['ここ最近で一番アツい曲', '元気を出したいとき', '落ち着きたいとき', 'つい歌いたくなるとき', 'ずっと好きな曲'];
+const shareTypes = { l: 'lyrics', m: 'melody', r: 'rhythm', a: 'atmosphere' };
 const songDrafts = new Map(themes.map((theme) => [theme, { title: '', artist: '', links: {}, selection: null }]));
 const searchState = new Map(themes.map((theme) => [theme, { timer: null, requestId: 0 }]));
 let shareCount = 1;
@@ -192,6 +194,27 @@ function renderSongFields() {
       label.append(input);
       row.append(label);
     }
+    const trackInputs = [...row.querySelectorAll('[data-field]')];
+    const linkFields = document.createElement('details');
+    const linkSummary = document.createElement('summary');
+    linkSummary.textContent = '配信リンク（任意）';
+    linkFields.append(linkSummary);
+    for (const [service, name] of [['appleMusic', 'Apple Music'], ['spotify', 'Spotify'], ['youtubeMusic', 'YouTube Music']]) {
+      const label = document.createElement('label');
+      label.textContent = name;
+      const input = document.createElement('input');
+      input.type = 'url';
+      input.autocomplete = 'url';
+      input.value = draft.links[service] ?? '';
+      input.addEventListener('input', () => {
+        draft.links[service] = input.value.trim();
+        renderSelectedArtwork(selectedArtwork, draft.selection, draft);
+      });
+      label.append(input);
+      linkFields.append(label);
+    }
+    linkFields.open = Object.values(draft.links).some(Boolean);
+    row.append(linkFields);
     const selectedArtwork = document.createElement('div');
     selectedArtwork.className = 'selected-artwork';
     row.append(selectedArtwork);
@@ -209,12 +232,11 @@ function renderSongFields() {
       currentDraft[input.dataset.field] = input.value;
       currentDraft.selection?.controller?.abort();
       currentDraft.selection = null;
-      currentDraft.links = {};
       renderSelectedArtwork(selectedArtwork, null);
       candidates.replaceChildren();
       scheduleTrackSearch(themeSelect.value, row, composing.size > 0);
     }
-    for (const input of row.querySelectorAll('input')) {
+    for (const input of trackInputs) {
       input.addEventListener('compositionstart', () => {
         composing.add(input);
         scheduleTrackSearch(themeSelect.value, row, true);
@@ -359,12 +381,12 @@ function renderCandidates(container, results, theme, row) {
     choose.addEventListener('click', () => {
       const draft = songDrafts.get(theme);
       draft.selection?.controller?.abort();
-      draft.links = {};
       draft.title = track.trackName || draft.title;
       draft.artist = track.artistName || draft.artist;
       const appleUrl = appleTrackUrl(track);
       const selection = {
         trackId: track.trackId,
+        spotifyTrackId: track.spotifyTrackId,
         albumName: track.collectionName || '',
         artworkUrl: track.artworkUrl100 || '',
         preview: getTrackPreview(track, appleUrl),
@@ -424,6 +446,10 @@ function validateSongEntry() {
       return '曲名またはアーティスト名に壊れた文字が含まれています。入力し直してください。';
     }
     if (draft.title.trim().length > 100 || draft.artist.trim().length > 100) return '曲名とアーティスト名は100文字以内で入力してください。';
+    const links = savedServiceLinks(draft.links);
+    if (Object.entries(draft.links).some(([service, value]) => value && !links[service])) {
+      return '配信リンクには、各サービスの有効なHTTPS URLを入力してください。';
+    }
   }
   if (brokenUnicode.test(displayNameInput.value)) return 'ユーザー名に壊れた文字が含まれています。入力し直してください。';
   if (displayNameInput.value.trim().length > 30) return '表示名は30文字以内で入力してください。';
@@ -535,19 +561,42 @@ function createCardAlbum(title, name, shared) {
 }
 
 function quizSharePost() {
-  const songs = selectedSongs().map(({ theme, title, artist, links, selection }) => ({
-    theme, title: title.trim(), artist: artist.trim(), links: savedServiceLinks(links),
-    selection: selection && {
-      trackId: selection.trackId, albumName: selection.albumName, artworkUrl: selection.artworkUrl, isrc: selection.isrc,
-      links: selection.links, pending: Boolean(selection.controller),
-    },
-  }));
   const type = resultType.textContent;
+  const typeId = types.find(item => item.name === type)?.id;
+  const t = Object.keys(shareTypes).find(key => shareTypes[key] === typeId);
+  const s = selectedSongs().map(({ theme, title, artist, links, selection }) => {
+    const song = [themes.indexOf(theme), title.trim(), artist.trim()];
+    const id = songTrackId(selection?.trackId) || selection?.spotifyTrackId;
+    const manualLinks = savedServiceLinks(links);
+    if (Object.keys(manualLinks).length) song.push(id || null, manualLinks);
+    else if (id) song.push(id);
+    return song;
+  });
   const displayName = displayNameInput.value.trim();
   const lines = ['【MACHA-TUNE診断結果】'];
   if (displayName) lines.push(`${displayName}さんの`);
   lines.push(`音楽を聴くときのタイプは「${type}」でした`, '', 'おすすめの曲はこちら！', '');
-  return sharePost('diagnosis', { type, displayName, songs }, lines);
+  return sharePost('diagnosis', { v: 1, t, s, ...(displayName && { n: displayName }) }, lines);
+}
+
+function readDiagnosisShare(data) {
+  if (!Object.hasOwn(data, 'v')) return data;
+  const type = types.find(item => item.id === shareTypes[data.t]);
+  if (data.v !== 1 || !type || !Array.isArray(data.s)) throw new Error('Invalid share');
+  const songs = data.s.map(entry => {
+    if (!Array.isArray(entry) || entry.length < 3 || entry.length > 5) throw new Error('Invalid song');
+    const [themeId, title, artist, id, links] = entry;
+    if (!Number.isInteger(themeId) || !themes[themeId]) throw new Error('Invalid theme');
+    const trackId = songTrackId(id);
+    const spotify = spotifyTrackUrl(id);
+    if (id != null && !trackId && !spotify) throw new Error('Invalid track ID');
+    return {
+      theme: themes[themeId], title, artist, links: savedServiceLinks(links),
+      selection: trackId ? { trackId, links: { appleMusic: appleTrackUrl({ trackId }) } }
+        : spotify ? { spotifyTrackId: id, links: { spotify } } : null,
+    };
+  });
+  return { type: type.name, displayName: data.n, songs };
 }
 
 function appHomeUrl() {
@@ -602,7 +651,7 @@ async function showSharedSongs(payload, compact = false) {
       showSharedHomeAction(discoveryCards);
       return;
     }
-    const { type, displayName = '', songs } = data;
+    const { type, displayName = '', songs } = readDiagnosisShare(data);
     if (typeof type !== 'string' || typeof displayName !== 'string' || !Array.isArray(songs) || ![1, 3].includes(songs.length)
       || !songs.every(song => song && [song.theme, song.title, song.artist].every(value => typeof value === 'string'))) {
       throw new Error('Invalid share');
@@ -636,9 +685,19 @@ async function showSharedSongs(payload, compact = false) {
 
 async function restoreSharedCatalog(songs, cards) {
   const ids = songs.map(({ selection }) => songTrackId(selection?.trackId) || appleTrackId(selection?.links?.appleMusic));
-  if (!ids.some(Boolean)) return;
-  const metadata = await lookupCatalogTracks(ids.filter(Boolean), AbortSignal.timeout(8000)).catch(() => new Map());
-  songs.forEach((song, index) => hydrateSharedCard(cards[index], song, metadata.get(ids[index])));
+  const apple = ids.some(Boolean)
+    ? lookupCatalogTracks(ids.filter(Boolean), AbortSignal.timeout(8000)).catch(() => new Map())
+    : Promise.resolve(new Map());
+  const spotify = songs.some(song => song.selection?.spotifyTrackId)
+    ? loadDiscoveryCatalog().catch(() => [])
+    : Promise.resolve([]);
+  await Promise.all(songs.map(async (song, index) => {
+    if (ids[index]) hydrateSharedCard(cards[index], song, (await apple).get(ids[index]));
+    else if (song.selection?.spotifyTrackId) {
+      const match = (await spotify).find(item => item.spotifyTrackId === song.selection.spotifyTrackId);
+      hydrateSharedCard(cards[index], song, match);
+    }
+  }));
 }
 
 function hydrateSharedCard(card, song, metadata, shared = true) {
