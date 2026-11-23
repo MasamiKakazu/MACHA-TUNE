@@ -19,7 +19,9 @@ main { width: min(100% - 40px, 600px); padding: 32px 0; }
 .home-header { margin: 0; }
 h1 { margin: 0; line-height: 0; }
 .home-logo { display: block; width: min(100%, 720px); height: auto; margin-inline: auto; }
-.subtitle { margin: clamp(4px, 1vw, 12px) 0 26px; font-size: clamp(1.1rem, 4vw, 1.5rem); font-weight: 700; }
+.subtitle { margin: clamp(4px, 1vw, 12px) 0 10px; font-size: clamp(1.1rem, 4vw, 1.5rem); font-weight: 700; text-align: center; }
+.home-description { margin: 0 0 24px; font-size: .95rem; font-weight: 400; line-height: 1.8; text-align: center; }
+.home-description span { display: block; }
 .primary-button { min-height: 54px; padding: 12px 26px; border: 0; border-bottom: 2px solid #087e72; border-radius: 18px; color: var(--navy); background: var(--mint); cursor: pointer; box-shadow: inset 0 2px 0 rgb(255 255 255 / 55%), 0 4px 9px rgb(23 43 77 / 22%); transition: transform 100ms ease, box-shadow 100ms ease; }
 .primary-button:active { transform: translateY(2px); box-shadow: inset 0 2px 0 rgb(255 255 255 / 75%), 0 1px 3px rgb(23 43 77 / 20%); }
 .secondary-button { min-height: 44px; padding: 8px 18px; border: 1px solid #c9dcd8; border-radius: 999px; color: var(--navy); background: var(--white); cursor: pointer; }
@@ -27,6 +29,7 @@ h1 { margin: 0; line-height: 0; }
 .result-actions { display: grid; justify-items: center; gap: 12px; margin-top: 24px; }
 .result-actions button { width: min(100%, 260px); white-space: nowrap; }
 @media (max-width: 600px) {
+  .subtitle span { display: block; }
   .home-actions { flex-direction: column; }
   .home-actions button { width: min(100%, 280px); }
 }
@@ -191,6 +194,10 @@ body { min-height: 100svh; display: grid; grid-template-rows: auto 1fr auto; pla
 .share-preview-layout .song-service-links { justify-content: center; }
 .share-preview-layout .song-service-links { width: 100%; }
 .share-preview-layout .song-service-link { flex: 0 1 auto; }
+#preview-type-intro { display: grid; justify-items: center; gap: 8px; max-width: 560px; margin: 0 auto 32px; text-align: center; }
+#preview-type-intro[hidden] { display: none; }
+.share-type-character { display: block; width: min(38vw, 140px); max-height: 160px; object-fit: contain; }
+.share-type-description { margin: 0; font-size: 1rem; font-weight: 400; line-height: 1.75; overflow-wrap: anywhere; }
 @media (max-width: 600px) {
   .song-preview-card { grid-template-columns: minmax(0, 1fr); }
   .preview-artwork-wrap { justify-self: center; }
