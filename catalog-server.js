@@ -35,13 +35,18 @@ export function installCatalogMiddleware(server) {
           error: 'Appleカタログに接続できませんでした。', upstreamStatus: result.status,
         });
       }
-      const data = await result.json();
+      const data = await result.json().catch(error => {
+        if (error instanceof SyntaxError) return null;
+        throw error;
+      });
       if (!Array.isArray(data?.results)) return sendJson(response, 502, { error: 'Appleカタログの応答形式が無効です。' });
       sendJson(response, 200, data);
     } catch (error) {
       const timeout = error.name === 'TimeoutError';
       console.warn('Appleカタログ接続エラー:', error.cause?.code ?? error.name);
-      sendJson(response, timeout ? 504 : 502, { error: 'Appleカタログから候補を取得できませんでした。' });
+      sendJson(response, timeout ? 504 : 502, {
+        error: timeout ? 'Appleカタログへの接続がタイムアウトしました。' : 'Appleカタログとの通信に失敗しました。',
+      });
     }
   });
 }

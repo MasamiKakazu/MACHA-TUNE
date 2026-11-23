@@ -2,7 +2,7 @@ import { appleTrackId, appleTrackUrl, createServiceLinks, resolveServiceLinks, s
 import { createSongPreviewControls, getTrackPreview, stopSongPreview } from './song-preview-audio.js';
 import { mainGenres, extraGenreGroups, regions, vocalFilters, formatDiscoveryGenres, findDiscoverySongs, drawDiscoverySongs, drawDiagnosisSongs } from './discovery-catalog.js';
 import { largeCatalogArtwork, lookupCatalogTracks, searchCatalogTracks } from './music-catalog.js';
-import { readIntroducedSongIds, readPreviousRecommendationIds, readRegisteredSongs, saveIntroducedSongs, saveRegisteredSongs, songTrackId } from './song-history.js';
+import { readIntroducedSongIds, readPreviousRecommendationIds, readRegisteredSongs, saveIntroducedSongs, saveRegisteredSongs, songKey, songTrackId } from './song-history.js';
 import { decodeCompactPayload, sharedPayloadHash, sharePages } from './share-pages.js';
 import lyricsCharacter from './assets/charactors/lyrics.png';
 import melodyCharacter from './assets/charactors/melody.png';
@@ -203,7 +203,8 @@ function renderSongFields() {
       if (shareCount === 1) songFields.dataset.singleTheme = themeSelect.value;
       renderSongFields();
     });
-    row.querySelectorAll('input').forEach((input) => input.addEventListener('input', () => {
+    const composing = new Set();
+    function updateInput(input) {
       const currentDraft = songDrafts.get(themeSelect.value);
       currentDraft[input.dataset.field] = input.value;
       currentDraft.selection?.controller?.abort();
@@ -211,8 +212,22 @@ function renderSongFields() {
       currentDraft.links = {};
       renderSelectedArtwork(selectedArtwork, null);
       candidates.replaceChildren();
-      scheduleTrackSearch(themeSelect.value, row);
-    }));
+      scheduleTrackSearch(themeSelect.value, row, composing.size > 0);
+    }
+    for (const input of row.querySelectorAll('input')) {
+      input.addEventListener('compositionstart', () => {
+        composing.add(input);
+        scheduleTrackSearch(themeSelect.value, row, true);
+      });
+      input.addEventListener('input', event => {
+        if (event.isComposing) composing.add(input);
+        updateInput(input);
+      });
+      input.addEventListener('compositionend', () => {
+        composing.delete(input);
+        updateInput(input);
+      });
+    }
     renderSelectedArtwork(selectedArtwork, draft.selection, draft);
     if (draft.selection) renderCandidates(candidates, draft.selection.results || [], themeSelect.value, row);
     else scheduleTrackSearch(themeSelect.value, row);
@@ -249,32 +264,58 @@ function renderSelectedArtwork(container, selection, draft) {
   container.append(metadata, createServiceLinks(draft));
 }
 
-function scheduleTrackSearch(theme, row) {
+function scheduleTrackSearch(theme, row, composing = false) {
   const title = row.querySelector('[data-field="title"]').value.trim();
   const artist = row.querySelector('[data-field="artist"]').value.trim();
   const state = searchState.get(theme);
   window.clearTimeout(state.timer);
-  if (!title || !artist) return;
-  const query = `${title} ${artist}`;
-  state.timer = window.setTimeout(() => searchTracks(theme, query, row), 500);
+  ++state.requestId;
+  if (composing || !title || !artist) return;
+  state.timer = window.setTimeout(() => {
+    if (row.isConnected) void searchTracks(theme, title, artist, row);
+  }, 500);
 }
 
-async function searchTracks(theme, query, row) {
+async function searchTracks(theme, title, artist, row) {
   const state = searchState.get(theme);
   const requestId = ++state.requestId;
   const resultsContainer = row.querySelector('.song-candidates');
   resultsContainer.textContent = '曲を検索しています…';
-  const isCurrent = () => {
-    const draft = songDrafts.get(theme);
-    return row.isConnected && requestId === state.requestId && `${draft.title.trim()} ${draft.artist.trim()}` === query;
-  };
+  const isCurrent = () => row.isConnected && requestId === state.requestId;
   try {
-    const results = await searchCatalogTracks(query);
+    const results = await searchCatalogTracks(`${title} ${artist}`);
     if (isCurrent()) renderCandidates(resultsContainer, results, theme, row);
   } catch (error) {
     if (!isCurrent()) return;
     console.warn('曲の候補を取得できませんでした。', error);
-    resultsContainer.textContent = '候補を取得できませんでした。入力した曲名とアーティスト名はそのまま使えます。';
+    const key = songKey(title, artist);
+    const catalog = await loadDiscoveryCatalog().catch(error => {
+      console.warn('収録曲カタログを読み込めませんでした。', error);
+      return [];
+    });
+    if (!isCurrent()) return;
+    const matches = catalog.filter(song => songKey(song.title, song.artist) === key || song.titleArtistAliases?.includes(key));
+    const status = document.createElement('p');
+    status.textContent = matches.length
+      ? '外部検索に失敗しました。収録曲カタログの候補を表示しています。'
+      : '外部検索に失敗しました。入力した内容で続けることもできます。';
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'secondary-button';
+    retry.textContent = '再試行';
+    retry.addEventListener('click', () => scheduleTrackSearch(theme, row));
+    if (matches.length) {
+      renderCandidates(resultsContainer, matches.map(song => ({
+        trackName: song.title,
+        artistName: song.artist,
+        trackId: song.appleTrackId,
+        artworkUrl100: song.artworkUrl,
+        spotifyTrackId: song.spotifyTrackId,
+      })), theme, row);
+    } else {
+      resultsContainer.replaceChildren();
+    }
+    resultsContainer.prepend(status, retry);
   }
 }
 
@@ -328,7 +369,7 @@ function renderCandidates(container, results, theme, row) {
         artworkUrl: track.artworkUrl100 || '',
         preview: getTrackPreview(track, appleUrl),
         isrc: track.isrc || '',
-        links: savedServiceLinks({ appleMusic: appleUrl }),
+        links: savedServiceLinks({ appleMusic: appleUrl, spotify: spotifyTrackUrl(track.spotifyTrackId) }),
         controller: new AbortController(),
         results,
       };
@@ -336,6 +377,7 @@ function renderCandidates(container, results, theme, row) {
       row.querySelector('[data-field="title"]').value = draft.title;
       row.querySelector('[data-field="artist"]').value = draft.artist;
       renderSelectedArtwork(row.querySelector('.selected-artwork'), draft.selection, draft);
+      row.querySelector('.song-candidates > .secondary-button')?.remove();
       void loadSelectedLinks(theme, draft, selection);
     });
     candidate.append(choose);

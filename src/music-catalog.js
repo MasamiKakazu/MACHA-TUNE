@@ -5,29 +5,26 @@ import { appleLookupUrl, appleSearchUrl, catalogPath } from './catalog-endpoints
 let searchCallbackId = 0;
 
 export async function searchCatalogTracks(term) {
-  const localController = new AbortController();
-  const localTimeout = setTimeout(() => localController.abort(), 8000);
-  try {
-    const local = await fetchLocalCatalog('search', { term }, localController.signal);
+  if (import.meta.env.DEV) {
+    const signal = AbortSignal.timeout(8000);
+    const local = await fetchLocalCatalog('search', { term }, signal);
     if (local) return readSearchResults(local);
-  } finally {
-    clearTimeout(localTimeout);
   }
   const url = appleSearchUrl(term);
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 4000);
+  const signal = AbortSignal.timeout(4000);
+  let response;
   try {
-    const response = await fetch(url, { signal: controller.signal });
-    if (response.ok) return readSearchResults(await response.json());
-    if (response.status < 500 || response.headers.has('retry-after')) {
-      return Promise.reject(new Error(`iTunes検索 HTTP ${response.status}`));
-    }
-  } catch {
-    // Cross-origin fetch can fail even when the official script endpoint is available.
-  } finally {
-    clearTimeout(timeout);
+    response = await fetch(url, { signal });
+  } catch (error) {
+    console.warn(signal.aborted ? 'iTunes検索がタイムアウトしました。' : 'iTunes検索の通信に失敗しました。', error);
+    return searchWithAppleCallback(url);
   }
-  return searchWithAppleCallback(url);
+  if (!response.ok) throw new Error(`iTunes検索 HTTP ${response.status}`);
+  try {
+    return readSearchResults(await response.json());
+  } catch (error) {
+    throw new Error(signal.aborted ? 'iTunes検索がタイムアウトしました。' : 'iTunes検索の応答を読み取れませんでした。', { cause: error });
+  }
 }
 
 function readSearchResults(data) {
@@ -59,11 +56,11 @@ function searchWithAppleCallback(url) {
       script.remove();
       delete window[callback];
     };
-    const fail = () => {
+    const fail = message => {
       cleanup();
-      reject(new Error('iTunesの検索コールバックを取得できませんでした。'));
+      reject(new Error(message));
     };
-    const timeout = setTimeout(fail, 6000);
+    const timeout = setTimeout(() => fail('iTunes検索コールバックがタイムアウトしました。'), 6000);
     window[callback] = data => {
       cleanup();
       try {
@@ -74,9 +71,9 @@ function searchWithAppleCallback(url) {
     };
     url.searchParams.set('callback', callback);
     script.src = url.href;
-    script.addEventListener('error', fail, { once: true });
+    script.addEventListener('error', () => fail('iTunes検索スクリプトを読み込めませんでした。'), { once: true });
     script.addEventListener('load', () => {
-      if (window[callback]) fail();
+      if (window[callback]) fail('iTunes検索の応答にコールバックがありませんでした。');
     }, { once: true });
     document.head.append(script);
   });
