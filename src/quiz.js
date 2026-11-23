@@ -3,7 +3,7 @@ import { createSongPreviewControls, getTrackPreview, stopSongPreview } from './s
 import { mainGenres, extraGenreGroups, regions, vocalFilters, formatDiscoveryGenres, findDiscoverySongs, drawDiscoverySongs } from './discovery-catalog.js';
 import { largeCatalogArtwork, lookupCatalogTracks, searchCatalogTracks } from './music-catalog.js';
 import { readIntroducedSongIds, readPreviousRecommendationIds, readRegisteredSongs, saveIntroducedSongs, saveRegisteredSongs, songTrackId } from './song-history.js';
-import { sharePages } from './share-pages.js';
+import { decodeCompactPayload, sharedPayloadHash, sharePages } from './share-pages.js';
 import lyricsCharacter from './assets/charactors/lyrics.png';
 import melodyCharacter from './assets/charactors/melody.png';
 import rhythmCharacter from './assets/charactors/rhythm.png';
@@ -358,13 +358,18 @@ async function loadSelectedLinks(theme, draft, selection) {
 }
 
 function validateSongEntry() {
+  const brokenUnicode = /[\uD800-\uDFFF]/u;
   const selectedThemes = [...songFields.querySelectorAll('.song-theme')].map((select) => select.value);
   if (new Set(selectedThemes).size !== shareCount) return '曲ごとに異なるテーマを選んでください。';
   for (const theme of selectedThemes) {
     const draft = songDrafts.get(theme);
     if (!draft.title.trim() || !draft.artist.trim()) return '曲名とアーティスト名を入力してください。';
+    if (brokenUnicode.test(draft.title) || brokenUnicode.test(draft.artist)) {
+      return '曲名またはアーティスト名に壊れた文字が含まれています。入力し直してください。';
+    }
     if (draft.title.trim().length > 100 || draft.artist.trim().length > 100) return '曲名とアーティスト名は100文字以内で入力してください。';
   }
+  if (brokenUnicode.test(displayNameInput.value)) return 'ユーザー名に壊れた文字が含まれています。入力し直してください。';
   if (displayNameInput.value.trim().length > 30) return '表示名は30文字以内で入力してください。';
   return '';
 }
@@ -495,7 +500,7 @@ function appHomeUrl() {
 
 function sharePost(source, payload, lines) {
   const url = new URL(sharePages[source].path, appHomeUrl());
-  url.hash = new URLSearchParams({ share: JSON.stringify(payload) }).toString();
+  url.hash = sharedPayloadHash(payload);
   return [...lines, url.href].join('\n');
 }
 
@@ -518,7 +523,7 @@ function showSharedHomeAction(cards) {
   cards.after(action);
 }
 
-async function showSharedSongs(payload) {
+async function showSharedSongs(payload, compact = false) {
   stopSongPreview();
   home.hidden = true;
   quiz.hidden = true;
@@ -533,7 +538,7 @@ async function showSharedSongs(payload) {
   document.querySelector('.shared-home-action')?.remove();
   previewContent.replaceChildren();
   try {
-    const data = JSON.parse(payload);
+    const data = JSON.parse(compact ? decodeCompactPayload(payload) : payload);
     if (data.kind === 'discovery') {
       validateDiscoveryShare(data);
       songPreviewScreen.hidden = true;
@@ -992,8 +997,11 @@ nextButton.addEventListener('click', () => {
 });
 
 function openShareFromUrl() {
-  const payload = new URLSearchParams(location.hash.slice(1)).get('share');
+  const params = new URLSearchParams(location.hash.slice(1));
+  const payload = params.get('share');
+  const compact = params.get('s');
   if (payload !== null) void showSharedSongs(payload);
+  else if (compact !== null) void showSharedSongs(compact, true);
   else if (document.querySelector('#share-actions').hidden) location.reload();
 }
 
