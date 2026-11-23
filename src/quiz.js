@@ -1,34 +1,45 @@
+import { appleTrackId, appleTrackUrl, createServiceLinks, resolveServiceLinks, savedServiceLinks } from './music-links.js';
+import { createSongPreviewControls, getTrackPreview, stopSongPreview } from './song-preview-audio.js';
+import { mainGenres, extraGenreGroups, regions, formatDiscoveryGenres, recommendSongs } from './discovery-catalog.js';
+import { largeCatalogArtwork, lookupCatalogTracks, searchCatalogTracks } from './music-catalog.js';
+import { readRegisteredSongs, saveRegisteredSongs, songTrackId } from './song-history.js';
+import { sharePages } from './share-pages.js';
+import lyricsCharacter from './assets/charactors/lyrics.png';
+import melodyCharacter from './assets/charactors/melody.png';
+import rhythmCharacter from './assets/charactors/rhythm.png';
+import atmosphereCharacter from './assets/charactors/atmosphere.png';
+
 const questions = [
   {
     prompt: '初めて聴く曲、最初に耳に残るのは？',
-    answers: ['印象的な一言', 'サビの旋律', 'ドラムやベースの刻み', '声や楽器の響き'],
+    answers: ['印象的な歌詞', 'サビのメロディー', 'ドラムやベースの刻み', '声や楽器の響き'],
   },
   {
     prompt: 'もう一度再生したくなるのは？',
-    answers: ['歌詞の意味を確かめたいとき', '口ずさみたいフレーズがあるとき', 'あのビートにもう一度乗りたいとき', '曲の空気に浸りたいとき'],
+    answers: ['歌詞の意味を確かめたいとき', '口ずさみたいフレーズがあるとき', 'あのリズムに乗りたいとき', '曲の雰囲気・世界観に浸りたいとき'],
   },
   {
     prompt: '人にすすめるなら、どこを聴いてほしい？',
-    answers: ['自分に刺さった言葉', 'サビに入る瞬間の音の流れ', '思わず体が動くところ', 'イントロで景色が浮かぶところ'],
+    answers: ['自分に刺さった歌詞', 'サビに入る瞬間の曲の展開', '思わず体がリズムに乗るところ', 'イントロで景色が浮かぶところ'],
   },
   {
     prompt: '歌詞のない曲を聴くときは？',
-    answers: ['曲に合いそうな物語を想像する', '主旋律を追いかける', '拍をとる', '楽器の音色に耳を澄ます'],
+    answers: ['曲に合いそうなストーリーを想像する', 'メロディーをじっくり聴く', 'リズムに乗る', '楽器の音色に耳を澄ます'],
   },
   {
     prompt: 'ライブで一番楽しみなのは？',
-    answers: ['好きな歌詞を生で聴く瞬間', 'みんなでサビを歌う瞬間', '会場全体で手拍子する瞬間', '音に包まれる瞬間'],
+    answers: ['好きな歌詞を生で聴く瞬間', 'みんなでサビを歌う瞬間', '会場全体で手拍子する瞬間', '音に包まれる臨場感'],
   },
   {
     prompt: '聴き終わったあとに残るのは？',
-    answers: ['自分に重なる言葉', '頭の中で流れる旋律', '自然と刻んでしまうテンポ', 'その曲が連れてきた気分'],
+    answers: ['自分に重なる歌詞', '頭の中で流れるメロディー', '自然と刻んでしまうテンポ', 'その曲を聴いて残った余韻'],
   },
 ];
 const types = [
-  { id: 'lyrics', name: '言葉に惹かれるタイプ', description: '何気ない一言が自分の記憶と重なる瞬間、歌詞の奥にある物語まで聴きたくなるタイプです。ふと耳にしたフレーズを、あとから何度も思い返すことがあります。', insight: '言葉の意味や背景を確かめながら、曲に込められた気持ちを受け取る聴き方が表れています。', tip: '同じサビを1番と最後で聴き比べて、歌詞の景色がどう変わるか味わってみましょう。', character: '/src/assets/charactors/lyrics.png' },
-  { id: 'melody', name: '口ずさみたいメロディー派', description: '帰り道にサビの数音が口からこぼれる瞬間、旋律がその日の気分に寄り添います。歌いたくなるフレーズを何度もたどるうちに、曲が自分のものになっていきます。', insight: '旋律を追い、口ずさみたくなるフレーズを見つける聴き方が表れています。', tip: '同じ曲の弾き語り版で、歌声に隠れていた旋律の動きを追ってみましょう。', character: '/src/assets/charactors/melody.png' },
-  { id: 'rhythm', name: 'ビートに乗るタイプ', description: '好きだと気づく前に指が拍を刻む瞬間、ビートが自然と体に届いています。ドラムやベースの重なりが、曲をもう一度聴きたくなる合図になります。', insight: '拍やビートの手触りを頼りに、体でリズムを受け取る聴き方が表れています。', tip: 'ライブ版で手拍子とドラムの重なりに耳を向けてみましょう。', character: '/src/assets/charactors/rhythm.png' },
-  { id: 'atmosphere', name: '音の世界に浸るタイプ', description: 'イントロの音色だけで景色が浮かぶ瞬間、声や楽器の響きが曲の世界へ連れていきます。音の余韻や空気ごと味わうことで、その曲ならではの風景が広がります。', insight: '音色や響きから曲の景色を想像し、空気ごと味わう聴き方が表れています。', tip: 'イヤホンでイントロの奥にある音をひとつ探して、どんな景色を連れてくるか聴いてみましょう。', character: '/src/assets/charactors/atmosphere.png' },
+  { id: 'lyrics', name: '言葉に惹かれるタイプ', description: '何気ない歌詞が自分の記憶や感情と重なる瞬間、歌詞の奥にある物語まで想像して聴くタイプです。ふと耳にしたフレーズを、あとから何度も思い返すことがあります。', insight: '言葉の意味や背景を確かめながら、曲に込められた気持ちを受け取る聴き方が表れています。', tip: '同じサビを1番と最後で聴き比べて、歌詞の景色がどう変わるか味わってみましょう。', character: lyricsCharacter },
+  { id: 'melody', name: 'メロディーを口ずさむタイプ', description: 'ふとした時にサビのメロディーが口からこぼれることが多いタイプです。歌いたくなるフレーズを何度もたどるうちに、曲がより日常の一部として溶け込みます。', insight: 'メロディー重視で、口ずさみたくなるフレーズを見つける聴き方が表れています。', tip: '同じ曲の弾き語り版で、歌声に隠れていたメロディーを追ってみましょう。', character: melodyCharacter },
+  { id: 'rhythm', name: '体でリズムに乗るタイプ', description: '好きだと気づく前に指や足、体全体で拍を刻むタイプです。ドラムやベースの重なりが、曲をもう一度聴きたくなる合図になります。', insight: '体でノリノリにリズムを受け取る聴き方が表れています。', tip: 'ライブ版で手拍子とドラムの重なりに耳を向けてみましょう。', character: rhythmCharacter },
+  { id: 'atmosphere', name: '曲の世界観に浸るタイプ', description: 'イントロから曲が描くストーリーや景色が浮かび、曲の世界観をじっくり味わうタイプです。音の余韻や空気ごと味わうことで、その曲ならではの風景を想像して楽曲を楽しみます。', insight: '切ない音色や明るい音色を感情や情景に置き換える聴き方が表れています。。', tip: 'イヤホンでメロディーや歌詞のフレーズひとつひとつを拾って、どんなストーリーの曲かを想像して聴いてみましょう。', character: atmosphereCharacter },
 ];
 
 const startButton = document.querySelector('#start-quiz');
@@ -63,8 +74,18 @@ const previewContent = document.querySelector('#song-preview-content');
 const keepThemeChoice = document.querySelector('#keep-theme-choice');
 const keepThemeSelect = document.querySelector('#keep-theme-select');
 const previewResultType = document.querySelector('#preview-result-type');
+const discoveryScreen = document.querySelector('#discovery-screen');
+const discoveryForm = document.querySelector('#discovery-form');
+const discoveryResults = document.querySelector('#discovery-results');
+const discoveryCards = document.querySelector('#discovery-cards');
+const discoverySummary = document.querySelector('#discovery-summary');
+const discoveryShare = document.querySelector('#copy-discovery-share');
+const discoveryEdit = document.querySelector('#edit-discovery');
+const discoveryHome = document.querySelector('#discovery-home');
+const discoveryRefine = document.querySelector('#discovery-refine');
+const discoveryControls = document.querySelector('#discovery-controls');
 const themes = ['ここ最近で一番アツい曲', '元気を出したいとき', '落ち着きたいとき', 'つい歌いたくなるとき', 'ずっと好きな曲'];
-const songDrafts = new Map(themes.map((theme) => [theme, { title: '', artist: '', links: { spotify: '', appleMusic: '', youtubeMusic: '' }, selection: null }]));
+const songDrafts = new Map(themes.map((theme) => [theme, { title: '', artist: '', links: {}, selection: null }]));
 const searchState = new Map(themes.map((theme) => [theme, { timer: null, requestId: 0 }]));
 let shareCount = 1;
 let selectedThemesBeforeSingle = themes.slice(0, 3);
@@ -127,6 +148,7 @@ function renderSongFields() {
       ? songFields.dataset.restoreThemes.split('|')
       : renderedThemes;
   const defaults = themes.filter((theme) => !selectedThemes.includes(theme)).slice(0, shareCount);
+  delete songFields.dataset.restoreThemes;
   songFields.replaceChildren(...Array.from({ length: shareCount }, (_, index) => {
     const row = document.createElement('fieldset');
     row.className = 'song-field';
@@ -137,6 +159,10 @@ function renderSongFields() {
     themeSelect.setAttribute('aria-label', `おすすめ曲 ${index + 1}のテーマ`);
     themeSelect.innerHTML = themes.map((theme) => `<option>${theme}</option>`).join('');
     themeSelect.value = selectedThemes[index] || defaults[index] || themes[index];
+    const usedThemes = selectedThemes.length ? selectedThemes : defaults;
+    for (const option of themeSelect.options) {
+      option.disabled = option.value !== themeSelect.value && usedThemes.includes(option.value);
+    }
     const draft = songDrafts.get(themeSelect.value);
     row.append(legend, themeSelect);
     for (const [key, labelText, placeholder] of [['title', '曲名', '曲名を入力'], ['artist', 'アーティスト名', 'アーティスト名を入力']]) {
@@ -146,29 +172,11 @@ function renderSongFields() {
       input.type = 'text';
       input.value = draft[key];
       input.placeholder = placeholder;
-      input.maxLength = key === 'url' ? 2048 : 100;
+      input.maxLength = 100;
       input.dataset.field = key;
       label.append(input);
       row.append(label);
     }
-    const linkDetails = document.createElement('details');
-    linkDetails.className = 'song-link-details';
-    const linkSummary = document.createElement('summary');
-    linkSummary.textContent = '曲のリンクを追加（任意）';
-    linkDetails.append(linkSummary);
-    for (const [serviceKey, serviceName] of [['spotify', 'Spotify'], ['appleMusic', 'Apple Music'], ['youtubeMusic', 'YouTube Music']]) {
-      const linkLabel = document.createElement('label');
-      linkLabel.textContent = `${serviceName}の曲リンク（任意）`;
-      const linkInput = document.createElement('input');
-      linkInput.type = 'url';
-      linkInput.value = draft.links[serviceKey];
-      linkInput.placeholder = 'https://';
-      linkInput.maxLength = 2048;
-      linkInput.dataset.linkService = serviceKey;
-      linkLabel.append(linkInput);
-      linkDetails.append(linkLabel);
-    }
-    row.append(linkDetails);
     const selectedArtwork = document.createElement('div');
     selectedArtwork.className = 'selected-artwork';
     row.append(selectedArtwork);
@@ -177,48 +185,24 @@ function renderSongFields() {
     candidates.setAttribute('aria-live', 'polite');
     row.append(candidates);
     themeSelect.addEventListener('change', () => {
-      saveSongDrafts();
+      if (shareCount === 1) songFields.dataset.singleTheme = themeSelect.value;
       renderSongFields();
     });
     row.querySelectorAll('input').forEach((input) => input.addEventListener('input', () => {
       const currentDraft = songDrafts.get(themeSelect.value);
-      if (input.dataset.linkService) currentDraft.links[input.dataset.linkService] = input.value;
-      else currentDraft[input.dataset.field] = input.value;
-      if (input.dataset.field === 'title' || input.dataset.field === 'artist') {
-        currentDraft.selection = null;
-        renderSelectedArtwork(selectedArtwork, null);
-      candidates.textContent = '入力を待っています…';
-        scheduleTrackSearch(themeSelect.value, row);
-      }
+      currentDraft[input.dataset.field] = input.value;
+      currentDraft.selection?.controller?.abort();
+      currentDraft.selection = null;
+      currentDraft.links = {};
+      renderSelectedArtwork(selectedArtwork, null);
+      candidates.replaceChildren();
+      scheduleTrackSearch(themeSelect.value, row);
     }));
-    renderSelectedArtwork(selectedArtwork, draft.selection);
+    renderSelectedArtwork(selectedArtwork, draft.selection, draft);
     if (draft.selection) renderCandidates(candidates, draft.selection.results || [], themeSelect.value, row);
-    scheduleTrackSearch(themeSelect.value, row);
+    else scheduleTrackSearch(themeSelect.value, row);
     return row;
   }));
-}
-
-function createServiceLinks(draft) {
-  const links = document.createElement('div');
-  links.className = 'song-service-links';
-  const searchTerm = `${draft.title.trim()} ${draft.artist.trim()}`;
-  const services = [
-    { key: 'spotify', name: 'Spotify', searchUrl: `https://open.spotify.com/search/${encodeURIComponent(searchTerm)}` },
-    { key: 'appleMusic', name: 'Apple Music', searchUrl: `https://music.apple.com/jp/search?term=${encodeURIComponent(searchTerm)}` },
-    { key: 'youtubeMusic', name: 'YouTube Music', searchUrl: `https://music.youtube.com/search?q=${encodeURIComponent(searchTerm)}` },
-  ];
-  services.forEach((service) => {
-    const hasTrackLink = Boolean(draft.links[service.key].trim());
-    const link = document.createElement('a');
-    link.className = `song-service-link service-${service.key}`;
-    link.href = hasTrackLink ? draft.links[service.key].trim() : service.searchUrl;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.textContent = `${service.name}で${hasTrackLink ? '開く' : '検索'}`;
-    link.setAttribute('aria-label', `${service.name}で${draft.title.trim()}を${hasTrackLink ? '開く' : '検索'}`);
-    links.append(link);
-  });
-  return links;
 }
 
 function renderSelectedArtwork(container, selection, draft) {
@@ -230,19 +214,21 @@ function renderSelectedArtwork(container, selection, draft) {
   placeholder.setAttribute('aria-hidden', 'true');
   placeholder.hidden = Boolean(selection.artworkUrl);
   container.append(placeholder);
-  if (!selection?.artworkUrl) return;
-  const image = document.createElement('img');
-  image.className = 'selected-song-artwork';
-  image.alt = '';
-  image.src = selection.artworkUrl;
-  image.addEventListener('load', () => { placeholder.hidden = true; });
-  image.addEventListener('error', () => { image.hidden = true; placeholder.hidden = false; });
-  container.append(image);
+  if (selection.artworkUrl) {
+    const image = document.createElement('img');
+    image.className = 'selected-song-artwork';
+    image.alt = '';
+    image.addEventListener('error', () => { image.hidden = true; placeholder.hidden = false; });
+    image.src = selection.artworkUrl;
+    container.append(image);
+  }
   const metadata = document.createElement('div');
   metadata.className = 'selected-song-metadata';
   const title = document.createElement('strong');
+  title.className = 'song-title';
   title.textContent = draft.title;
   const artist = document.createElement('span');
+  artist.className = 'song-artist';
   artist.textContent = draft.artist;
   metadata.append(title, artist);
   container.append(metadata, createServiceLinks(draft));
@@ -263,16 +249,17 @@ async function searchTracks(theme, query, row) {
   const requestId = ++state.requestId;
   const resultsContainer = row.querySelector('.song-candidates');
   resultsContainer.textContent = '曲を検索しています…';
-  const params = new URLSearchParams({ term: query, country: 'jp', media: 'music', entity: 'song', limit: '8' });
+  const isCurrent = () => {
+    const draft = songDrafts.get(theme);
+    return row.isConnected && requestId === state.requestId && `${draft.title.trim()} ${draft.artist.trim()}` === query;
+  };
   try {
-    const response = await fetch(`https://itunes.apple.com/search?${params}`);
-    if (!response.ok) throw new Error('Search failed');
-    const data = await response.json();
-    const currentDraft = songDrafts.get(theme);
-    if (requestId !== state.requestId || `${currentDraft.title.trim()} ${currentDraft.artist.trim()}` !== query) return;
-    renderCandidates(resultsContainer, data.results || [], theme, row);
-  } catch {
-    if (requestId === state.requestId) resultsContainer.textContent = '候補を取得できませんでした。入力した曲名とアーティスト名はそのまま使えます。';
+    const results = await searchCatalogTracks(query);
+    if (isCurrent()) renderCandidates(resultsContainer, results, theme, row);
+  } catch (error) {
+    if (!isCurrent()) return;
+    console.warn('曲の候補を取得できませんでした。', error);
+    resultsContainer.textContent = '候補を取得できませんでした。入力した曲名とアーティスト名はそのまま使えます。';
   }
 }
 
@@ -295,9 +282,8 @@ function renderCandidates(container, results, theme, row) {
     placeholder.setAttribute('aria-hidden', 'true');
     placeholder.hidden = Boolean(track.artworkUrl100);
     if (track.artworkUrl100) {
-      image.src = track.artworkUrl100;
-      image.addEventListener('load', () => { placeholder.hidden = true; });
       image.addEventListener('error', () => { image.hidden = true; placeholder.hidden = false; });
+      image.src = track.artworkUrl100;
     } else {
       image.hidden = true;
       placeholder.hidden = false;
@@ -307,23 +293,35 @@ function renderCandidates(container, results, theme, row) {
     const choose = document.createElement('button');
     choose.type = 'button';
     choose.className = 'candidate-choice';
-    choose.textContent = `${track.trackName} / ${track.artistName} — ${track.collectionName || 'アルバム情報なし'}`;
+    const songTitle = document.createElement('strong');
+    songTitle.className = 'song-title';
+    songTitle.textContent = track.trackName;
+    const songArtist = document.createElement('span');
+    songArtist.className = 'song-artist';
+    songArtist.textContent = track.artistName;
+    choose.append(songTitle, ' / ', songArtist, ` — ${track.collectionName || 'アルバム情報なし'}`);
     choose.addEventListener('click', () => {
       const draft = songDrafts.get(theme);
+      draft.selection?.controller?.abort();
+      draft.links = {};
       draft.title = track.trackName || draft.title;
       draft.artist = track.artistName || draft.artist;
-      draft.selection = {
-        trackName: track.trackName,
-        artistName: track.artistName,
+      const appleUrl = appleTrackUrl(track);
+      const selection = {
+        trackId: track.trackId,
         albumName: track.collectionName || '',
         artworkUrl: track.artworkUrl100 || '',
-        itunesUrl: track.trackViewUrl || track.collectionViewUrl || '',
+        preview: getTrackPreview(track, appleUrl),
+        isrc: track.isrc || '',
+        links: savedServiceLinks({ appleMusic: appleUrl }),
+        controller: new AbortController(),
         results,
       };
+      draft.selection = selection;
       row.querySelector('[data-field="title"]').value = draft.title;
       row.querySelector('[data-field="artist"]').value = draft.artist;
       renderSelectedArtwork(row.querySelector('.selected-artwork'), draft.selection, draft);
-      renderCandidates(container, results, theme, row);
+      void loadSelectedLinks(theme, draft, selection);
     });
     candidate.append(choose);
     if (track.artworkUrl100 && track.trackViewUrl) {
@@ -340,82 +338,399 @@ function renderCandidates(container, results, theme, row) {
   });
 }
 
-function saveSongDrafts() {
-  songFields.querySelectorAll('.song-field').forEach((row) => {
-    const theme = row.querySelector('.song-theme').value;
-    row.querySelectorAll('input').forEach((input) => {
-      if (input.dataset.linkService) songDrafts.get(theme).links[input.dataset.linkService] = input.value;
-      else songDrafts.get(theme)[input.dataset.field] = input.value;
-    });
-  });
+async function loadSelectedLinks(theme, draft, selection) {
+  const signal = AbortSignal.any([selection.controller.signal, AbortSignal.timeout(5000)]);
+  const links = await resolveServiceLinks(selection, signal).catch(() => ({}));
+  if (draft.selection !== selection) return;
+  selection.links = { ...links, ...selection.links };
+  selection.controller = null;
+  for (const row of songFields.querySelectorAll('.song-field')) {
+    if (row.querySelector('.song-theme').value === theme) {
+      row.querySelector('.selected-song-card > .song-service-links')?.replaceWith(createServiceLinks(draft));
+    }
+  }
+  for (const card of previewContent.querySelectorAll('article')) {
+    if (card.dataset.theme === theme) {
+      card.querySelector('.song-service-links').replaceWith(createServiceLinks(draft));
+    }
+  }
 }
 
 function validateSongEntry() {
-  saveSongDrafts();
   const selectedThemes = [...songFields.querySelectorAll('.song-theme')].map((select) => select.value);
   if (new Set(selectedThemes).size !== shareCount) return '曲ごとに異なるテーマを選んでください。';
   for (const theme of selectedThemes) {
     const draft = songDrafts.get(theme);
     if (!draft.title.trim() || !draft.artist.trim()) return '曲名とアーティスト名を入力してください。';
     if (draft.title.trim().length > 100 || draft.artist.trim().length > 100) return '曲名とアーティスト名は100文字以内で入力してください。';
-    const allowedHosts = { spotify: ['open.spotify.com', 'spotify.link'], appleMusic: ['music.apple.com'], youtubeMusic: ['music.youtube.com', 'www.youtube.com', 'youtube.com', 'youtu.be'] };
-    for (const [service, value] of Object.entries(draft.links)) {
-      if (!value.trim()) continue;
-      try {
-        const url = new URL(value.trim());
-        if (url.protocol !== 'https:' || !allowedHosts[service].some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`))) return '曲のリンクは各サービスのHTTPS URLを入力してください。';
-      } catch { return '曲のリンクの形式を確認してください。'; }
-    }
   }
   if (displayNameInput.value.trim().length > 30) return '表示名は30文字以内で入力してください。';
   return '';
 }
 
-function renderSongPreview() {
-  saveSongDrafts();
-  const selectedThemes = [...songFields.querySelectorAll('.song-theme')].map((select) => select.value);
-  previewResultType.textContent = `診断タイプ：${resultType.textContent}`;
-  previewContent.replaceChildren(...selectedThemes.map((theme) => {
-    const card = document.createElement('article');
-    const draft = songDrafts.get(theme);
-    const title = document.createElement('h3');
-    title.textContent = theme;
-    const song = document.createElement('p');
-    song.textContent = draft.title.trim();
-    const artist = document.createElement('p');
-    artist.textContent = draft.artist.trim();
-    const artworkWrap = document.createElement('div');
-    artworkWrap.className = 'preview-artwork-wrap';
-    const placeholder = document.createElement('span');
-    placeholder.className = 'vinyl-placeholder';
-    placeholder.setAttribute('aria-hidden', 'true');
-    placeholder.hidden = Boolean(draft.selection?.artworkUrl);
-    artworkWrap.append(placeholder);
-    if (draft.selection?.artworkUrl) {
-      const image = document.createElement('img');
-      image.className = 'preview-artwork';
-      image.alt = `${draft.selection.albumName || draft.title}のジャケット`;
-      image.src = draft.selection.artworkUrl;
-      image.addEventListener('load', () => { placeholder.hidden = true; });
-      image.addEventListener('error', () => { image.hidden = true; placeholder.hidden = false; });
-      artworkWrap.prepend(image);
-      if (draft.selection.itunesUrl) {
-        const badge = document.createElement('a');
-        badge.className = 'itunes-badge-link';
-        badge.href = draft.selection.itunesUrl;
-        badge.target = '_blank';
-        badge.rel = 'noreferrer';
-        badge.textContent = 'iTunesで曲を見る';
-        artworkWrap.append(badge);
-      }
-    }
-    const album = document.createElement('p');
-    album.textContent = draft.selection?.albumName || '';
-    const serviceLinks = createServiceLinks(draft);
-    card.append(title, artworkWrap, song, artist, album, serviceLinks);
-    return card;
-  }));
+function selectedSongs() {
+  return [...songFields.querySelectorAll('.song-theme')].map(({ value: theme }) => ({ theme, ...songDrafts.get(theme) }));
 }
+
+function safeHttpsUrl(value) {
+  if (typeof value !== 'string') return '';
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password ? url.href : '';
+  } catch {
+    return '';
+  }
+}
+
+function renderSongPreview(songs, type = resultType.textContent, displayName = displayNameInput.value.trim(), shared = false) {
+  stopSongPreview();
+  if (shared) {
+    songPreviewScreen.querySelector('h2').textContent = displayName ? `${displayName}さんのおすすめ曲` : 'おすすめ曲';
+    previewResultType.textContent = `音楽タイプ：${type}`;
+  } else {
+    previewResultType.textContent = [displayName, `診断タイプ：${type}`].filter(Boolean).join('　');
+  }
+  previewContent.replaceChildren(...songs.map(draft => createSongCard(draft, shared)));
+  if (shared) songPreviewScreen.querySelector('h2').focus();
+}
+
+function createSongCard(draft, shared = false) {
+  const card = document.createElement('article');
+  card.className = 'song-preview-card';
+  card.dataset.theme = draft.theme;
+  const theme = document.createElement('p');
+  theme.className = 'song-preview-theme';
+  theme.textContent = draft.theme;
+  const song = document.createElement('h3');
+  song.className = 'song-title';
+  song.textContent = draft.title.trim();
+  const artist = document.createElement('p');
+  artist.className = 'song-artist';
+  artist.textContent = draft.artist.trim();
+  const artwork = createCardArtwork(draft.title, draft.selection?.artworkUrl, shared);
+  const info = document.createElement('div');
+  info.className = 'song-preview-info';
+  info.append(song, artist);
+  const album = createCardAlbum(draft.title, draft.selection?.albumName, shared);
+  if (album) info.append(album);
+  if (draft.reason) {
+    const reason = document.createElement('p');
+    reason.className = 'discovery-reason';
+    reason.textContent = draft.reason;
+    info.append(reason);
+  }
+  if (draft.selection?.preview) info.append(createSongPreviewControls(draft.selection.preview));
+  card.append(theme, artwork, info, createServiceLinks(draft));
+  return card;
+}
+
+function createCardArtwork(title, url, shared) {
+  const artworkWrap = document.createElement('div');
+  artworkWrap.className = 'preview-artwork-wrap';
+  const placeholder = document.createElement('span');
+  placeholder.className = 'vinyl-placeholder';
+  placeholder.setAttribute('aria-hidden', 'true');
+  const safeUrl = safeHttpsUrl(url);
+  const artworkUrl = shared ? largeCatalogArtwork(safeUrl) : safeUrl;
+  placeholder.hidden = Boolean(artworkUrl);
+  artworkWrap.append(placeholder);
+  if (artworkUrl) {
+    const image = document.createElement('img');
+    image.className = 'preview-artwork';
+    image.alt = `${title}のジャケット`;
+    image.addEventListener('error', () => {
+      if (artworkUrl !== safeUrl && image.src === artworkUrl) {
+        image.src = safeUrl;
+        return;
+      }
+      image.hidden = true;
+      placeholder.hidden = false;
+    });
+    image.src = artworkUrl;
+    artworkWrap.prepend(image);
+  }
+  return artworkWrap;
+}
+
+function createCardAlbum(title, name, shared) {
+  if (typeof name !== 'string' || !name.trim()) return null;
+  const normalize = value => value.normalize('NFKC').toLowerCase().replace(/\s+/gu, '');
+  const suffix = /\s*[-–—]\s*(?:Single|EP)\s*$/i;
+  const normalizedName = name.normalize('NFKC');
+  if (shared && suffix.test(normalizedName) && normalize(normalizedName.replace(suffix, '')) === normalize(title)) return null;
+  const album = document.createElement('p');
+  album.className = 'song-preview-album';
+  album.textContent = name;
+  return album;
+}
+
+function quizSharePost() {
+  const songs = selectedSongs().map(({ theme, title, artist, links, selection }) => ({
+    theme, title: title.trim(), artist: artist.trim(), links: savedServiceLinks(links),
+    selection: selection && {
+      trackId: selection.trackId, albumName: selection.albumName, artworkUrl: selection.artworkUrl, isrc: selection.isrc,
+      links: selection.links, pending: Boolean(selection.controller),
+    },
+  }));
+  const type = resultType.textContent;
+  const displayName = displayNameInput.value.trim();
+  const lines = ['【MACHA-TUNE診断結果】'];
+  if (displayName) lines.push(`${displayName}さんの`);
+  lines.push(`音楽を聴くときのタイプは「${type}」でした`, '', 'おすすめの曲はこちら！', '');
+  return sharePost('diagnosis', { type, displayName, songs }, lines);
+}
+
+function appHomeUrl() {
+  return new URL(import.meta.env.BASE_URL, location.origin);
+}
+
+function sharePost(source, payload, lines) {
+  const url = new URL(sharePages[source].path, appHomeUrl());
+  url.hash = new URLSearchParams({ share: JSON.stringify(payload) }).toString();
+  return [...lines, url.href].join('\n');
+}
+
+async function copySharePost(post, message, status) {
+  message.value = post;
+  message.hidden = false;
+  try {
+    await navigator.clipboard.writeText(post);
+    status.textContent = 'Slack用の投稿文をコピーしました。';
+  } catch {
+    message.select();
+    status.textContent = '選択した投稿文をコピーしてください。';
+  }
+  status.hidden = false;
+}
+
+function showSharedHomeAction(cards) {
+  const action = document.querySelector('#shared-home-action').content.cloneNode(true);
+  action.querySelector('a').href = appHomeUrl();
+  cards.after(action);
+}
+
+async function showSharedSongs(payload) {
+  stopSongPreview();
+  home.hidden = true;
+  quiz.hidden = true;
+  resultScreen.hidden = true;
+  songEntryScreen.hidden = true;
+  discoveryScreen.hidden = true;
+  closeDiscoveryResults();
+  songPreviewScreen.hidden = false;
+  songPreviewScreen.classList.add('shared-song-layout');
+  songPreviewScreen.querySelector('h2').textContent = 'おすすめ曲';
+  document.querySelector('#share-actions').hidden = true;
+  document.querySelector('.shared-home-action')?.remove();
+  previewContent.replaceChildren();
+  try {
+    const data = JSON.parse(payload);
+    if (data.kind === 'discovery') {
+      validateDiscoveryShare(data);
+      songPreviewScreen.hidden = true;
+      renderDiscoveryResults(data, true);
+      showSharedHomeAction(discoveryCards);
+      return;
+    }
+    const { type, displayName = '', songs } = data;
+    if (typeof type !== 'string' || typeof displayName !== 'string' || !Array.isArray(songs) || ![1, 3].includes(songs.length)
+      || !songs.every(song => song && [song.theme, song.title, song.artist].every(value => typeof value === 'string'))) {
+      throw new Error('Invalid share');
+    }
+    // Shared payloads can contain an ID, or an exact Apple Music track link on older URLs.
+    // Obtain audio from the catalogue rather than trusting a playable URL in the payload.
+    for (const song of songs) {
+      if (song.selection) delete song.selection.preview;
+    }
+    renderSongPreview(songs, type, displayName.trim(), true);
+    showSharedHomeAction(previewContent);
+    const cards = [...previewContent.children];
+    const refreshLinks = songs.map(async (song, index) => {
+      if (!song.selection?.pending) return;
+      const selection = { isrc: song.selection.isrc, links: savedServiceLinks(song.selection.links) };
+      const links = await resolveServiceLinks(selection, AbortSignal.timeout(5000)).catch(() => ({}));
+      song.selection.links = { ...links, ...selection.links };
+      if (cards[index].isConnected && Object.keys(links).length) {
+        const previous = cards[index].querySelector('.song-service-links');
+        const focusedIndex = [...previous.children].indexOf(document.activeElement);
+        const updated = createServiceLinks(song);
+        previous.replaceWith(updated);
+        updated.children[focusedIndex]?.focus({ preventScroll: true });
+      }
+    });
+    await Promise.all([...refreshLinks, restoreSharedCatalog(songs, cards)]);
+  } catch {
+    previewResultType.textContent = '共有リンクを読み込めませんでした。';
+  }
+}
+
+async function restoreSharedCatalog(songs, cards) {
+  const ids = songs.map(({ selection }) => songTrackId(selection?.trackId) || appleTrackId(selection?.links?.appleMusic));
+  if (!ids.some(Boolean)) return;
+  const metadata = await lookupCatalogTracks(ids.filter(Boolean), AbortSignal.timeout(8000)).catch(() => new Map());
+  songs.forEach((song, index) => hydrateSharedCard(cards[index], song, metadata.get(ids[index])));
+}
+
+function hydrateSharedCard(card, song, metadata) {
+  if (!card.isConnected || !metadata) return;
+  const artwork = card.querySelector('.preview-artwork-wrap');
+  if (!song.selection?.artworkUrl && metadata.artworkUrl) {
+    artwork.replaceWith(createCardArtwork(song.title, metadata.artworkUrl, true));
+  }
+  if (!song.selection?.albumName) {
+    const album = createCardAlbum(song.title, metadata.albumName, true);
+    if (album) card.querySelector('.song-artist').after(album);
+  }
+  if (metadata.preview) {
+    card.querySelector('.song-preview-info').append(createSongPreviewControls(metadata.preview, '▶ 試聴する'));
+  }
+}
+
+const anyGenre = document.querySelector('#discovery-any-genre');
+const genreOptions = document.querySelector('#discovery-genres');
+const extraGenres = document.querySelector('#discovery-extra-genres');
+const selectedGenres = document.querySelector('#discovery-selected-genres');
+const discoveryShareActions = document.querySelector('#discovery-share-actions');
+const discoveryMessage = document.querySelector('#discovery-share-message');
+const discoveryStatus = document.querySelector('#discovery-share-status');
+let discoveryRequest;
+let discoveryShareData;
+
+function discoveryOption(name, value, type, checked = false) {
+  const input = document.createElement('input');
+  input.name = name;
+  input.type = type;
+  input.value = value;
+  input.checked = checked;
+  const label = document.createElement('label');
+  label.append(input, value);
+  return label;
+}
+
+genreOptions.append(...mainGenres.map(genre => discoveryOption('genre', genre, 'checkbox')));
+for (const group of extraGenreGroups) {
+  const fieldset = document.createElement('fieldset');
+  const legend = document.createElement('legend');
+  legend.textContent = group.name;
+  const options = document.createElement('div');
+  options.className = 'discovery-options';
+  options.append(...group.genres.map(genre => discoveryOption('genre', genre, 'checkbox')));
+  fieldset.append(legend, options);
+  extraGenres.append(fieldset);
+}
+document.querySelector('#discovery-regions').append(
+  ...regions.map((region, index) => discoveryOption('region', region, 'radio', index === 0)));
+
+function updateGenreSelection() {
+  const selected = new FormData(discoveryForm).getAll('genre');
+  anyGenre.setAttribute('aria-pressed', String(selected.length === 0));
+  selectedGenres.textContent = `選択中：${formatDiscoveryGenres(selected)}`;
+}
+
+discoveryForm.addEventListener('change', event => {
+  if (event.target.name === 'genre') updateGenreSelection();
+});
+anyGenre.addEventListener('click', () => {
+  for (const input of discoveryForm.querySelectorAll('[name="genre"]:checked')) input.checked = false;
+  updateGenreSelection();
+});
+
+function openDiscovery() {
+  if (discoveryControls.parentElement !== discoveryScreen) discoveryScreen.append(discoveryControls);
+  home.hidden = true;
+  discoveryScreen.hidden = false;
+  document.querySelector('#discovery-heading').focus();
+}
+
+function closeDiscoveryResults() {
+  discoveryRequest?.abort();
+  discoveryResults.hidden = true;
+  discoveryShareData = undefined;
+  stopSongPreview();
+}
+
+function validateDiscoveryShare(data) {
+  if (!Array.isArray(data.genres) || !data.genres.every(genre => typeof genre === 'string')
+    || typeof data.region !== 'string' || !Array.isArray(data.songs) || data.songs.length < 1 || data.songs.length > 3
+    || !data.songs.every(song => song && Number.isSafeInteger(song.id) && song.id > 0
+      && [song.title, song.artist, song.genre, song.reason].every(value => typeof value === 'string'))) {
+    throw new Error('Invalid discovery share');
+  }
+}
+
+function renderDiscoveryResults(data, shared = false) {
+  closeDiscoveryResults();
+  discoveryScreen.hidden = true;
+  discoveryResults.hidden = false;
+  discoveryResults.classList.toggle('shared-song-layout', shared);
+  const heading = document.querySelector('#discovery-result-heading');
+  heading.textContent = shared ? 'MACHA-TUNEで見つけた曲' : 'あなたへのおすすめ';
+  discoveryShareData = data;
+  const { songs, region } = data;
+  const count = songs.length;
+  discoveryShareActions.hidden = shared || count === 0;
+  discoveryEdit.hidden = shared;
+  discoveryEdit.textContent = count ? '選択を変更する' : '別のジャンルで探す';
+  discoveryMessage.hidden = true;
+  discoveryStatus.hidden = true;
+  discoveryShare.textContent = `この${count}曲をSlackで共有`;
+  const summary = `${formatDiscoveryGenres(data.genres)} / ${region}`;
+  discoverySummary.textContent = shared ? (region === regions[0] ? formatDiscoveryGenres(data.genres) : summary)
+    : count ? summary : `${summary}　この組み合わせの曲はまだ見つかりませんでした`;
+  if (!count) discoveryRefine.append(discoveryControls);
+  else if (discoveryControls.parentElement !== discoveryScreen) discoveryScreen.append(discoveryControls);
+  const renderCards = (metadata = new Map()) => {
+    discoveryCards.replaceChildren(...songs.map(song => createSongCard({
+      ...song,
+      theme: song.genre,
+      selection: { links: { appleMusic: appleTrackUrl({ trackId: song.id }) }, ...metadata.get(String(song.id)) },
+    }, shared)));
+  };
+  renderCards();
+  const cards = [...discoveryCards.children];
+  heading.focus();
+  if (!count) return;
+  const request = new AbortController();
+  discoveryRequest = request;
+  const signal = AbortSignal.any([request.signal, AbortSignal.timeout(8000)]);
+  void lookupCatalogTracks(songs.map(song => song.id), signal).then(metadata => {
+    if (request.signal.aborted) return;
+    if (shared) songs.forEach((song, index) => hydrateSharedCard(cards[index], song, metadata.get(String(song.id))));
+    else renderCards(metadata);
+  }).catch(() => {});
+}
+
+document.querySelector('#open-discovery').addEventListener('click', openDiscovery);
+discoveryHome.addEventListener('click', () => {
+  closeDiscoveryResults();
+  discoveryScreen.hidden = true;
+  home.hidden = false;
+  document.querySelector('#open-discovery').focus();
+});
+discoveryEdit.addEventListener('click', () => {
+  if (discoveryControls.parentElement === discoveryRefine) {
+    discoveryForm.querySelector('[name="genre"]').focus();
+    return;
+  }
+  closeDiscoveryResults();
+  openDiscovery();
+});
+discoveryForm.addEventListener('submit', event => {
+  event.preventDefault();
+  const form = new FormData(discoveryForm);
+  const selected = form.getAll('genre');
+  const region = form.get('region');
+  const songs = recommendSongs(selected, region, readRegisteredSongs());
+  renderDiscoveryResults({ kind: 'discovery', genres: selected, region, songs });
+});
+discoveryShare.addEventListener('click', () => {
+  const { genres: selected } = discoveryShareData;
+  const post = sharePost('discovery', discoveryShareData, [
+    '【MACHA-TUNEで見つけた楽曲】',
+    `ジャンル：${formatDiscoveryGenres(selected)}`,
+  ]);
+  void copySharePost(post, discoveryMessage, discoveryStatus);
+});
 
 function moveToQuestion(nextIndex, direction) {
   if (isTransitioning || nextIndex < 0 || nextIndex >= questions.length) return;
@@ -490,13 +805,11 @@ document.querySelector('#open-song-entry').addEventListener('click', () => {
 
 shareCountInputs.forEach((input) => input.addEventListener('change', () => {
   if (Number(input.value) === 1 && shareCount === 3) {
-    saveSongDrafts();
     selectedThemesBeforeSingle = [...songFields.querySelectorAll('.song-theme')].map((select) => select.value);
     keepThemeSelect.replaceChildren(...selectedThemesBeforeSingle.map((theme) => new Option(theme, theme)));
     keepThemeChoice.hidden = false;
     return;
   }
-  saveSongDrafts();
   shareCount = Number(input.value);
   if (shareCount === 3 && selectedThemesBeforeSingle.length === 3) {
     songFields.dataset.restoreThemes = selectedThemesBeforeSingle.join('|');
@@ -522,13 +835,22 @@ document.querySelector('#preview-share').addEventListener('click', () => {
   entryError.textContent = validateSongEntry();
   entryError.hidden = !entryError.textContent;
   if (entryError.hidden) {
-    renderSongPreview();
+    document.querySelector('#share-message').hidden = true;
+    document.querySelector('#share-status').hidden = true;
+    const songs = selectedSongs();
+    saveRegisteredSongs(songs);
+    renderSongPreview(songs);
     songEntryScreen.hidden = true;
     songPreviewScreen.hidden = false;
   }
 });
 
+document.querySelector('#copy-slack-share').addEventListener('click', () => {
+  void copySharePost(quizSharePost(), document.querySelector('#share-message'), document.querySelector('#share-status'));
+});
+
 document.querySelector('#edit-songs').addEventListener('click', () => {
+  stopSongPreview();
   songPreviewScreen.hidden = true;
   songEntryScreen.hidden = false;
 });
@@ -539,6 +861,7 @@ document.querySelector('#back-to-result').addEventListener('click', () => {
 });
 
 document.querySelector('#preview-back-result').addEventListener('click', () => {
+  stopSongPreview();
   songPreviewScreen.hidden = true;
   resultScreen.hidden = false;
 });
@@ -551,6 +874,19 @@ nextButton.addEventListener('click', () => {
     return;
   }
   moveToQuestion(currentQuestion + 1, 'next');
+});
+
+function openShareFromUrl() {
+  const payload = new URLSearchParams(location.hash.slice(1)).get('share');
+  if (payload !== null) void showSharedSongs(payload);
+  else if (document.querySelector('#share-actions').hidden) location.reload();
+}
+
+openShareFromUrl();
+window.addEventListener('hashchange', openShareFromUrl);
+window.addEventListener('pagehide', stopSongPreview);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopSongPreview();
 });
 
 previousButton.addEventListener('click', () => moveToQuestion(currentQuestion - 1, 'previous'));

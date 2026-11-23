@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>MACHA-TUNE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&amp;display=swap">
     <link rel="stylesheet" href="/src/style.css">
     <script type="module" src="/src/quiz.js"></script>
   </head>
@@ -13,8 +16,47 @@
       <div id="home-screen">
         <header class="home-header"><h1><img class="home-logo" src="/src/assets/macha-tune-logo.png" alt="MACHA-TUNE"></h1></header>
         <p class="subtitle">新しい「好きな曲」と出会う</p>
-        <button id="start-quiz" type="button">診断をはじめる</button>
+        <div class="home-actions">
+          <button id="start-quiz" class="primary-button" type="button">診断をはじめる</button>
+          <button id="open-discovery" class="secondary-button" type="button">新しい曲を見つける</button>
+        </div>
       </div>
+      <section id="discovery-screen" aria-labelledby="discovery-heading" hidden>
+        <img class="result-logo" src="/src/assets/macha-tune-logo.png" alt="MACHA-TUNE">
+        <h2 id="discovery-heading" tabindex="-1">どんなジャンルが好き？</h2>
+        <div id="discovery-controls">
+          <form id="discovery-form">
+            <fieldset>
+              <legend>ジャンル（複数選択可）</legend>
+              <div id="discovery-genres" class="discovery-options"></div>
+              <details id="discovery-extra-genres">
+                <summary>もっとジャンルを見る</summary>
+              </details>
+              <button id="discovery-any-genre" type="button" aria-pressed="true">おまかせ</button>
+              <p id="discovery-selected-genres" aria-live="polite">選択中：おまかせ</p>
+            </fieldset>
+            <fieldset>
+              <legend>国内・海外</legend>
+              <div id="discovery-regions" class="discovery-options"></div>
+            </fieldset>
+            <button class="primary-button" type="submit">おすすめの3曲を見る</button>
+          </form>
+          <button id="discovery-home" class="secondary-button" type="button">トップに戻る</button>
+        </div>
+      </section>
+      <section id="discovery-results" class="share-preview-layout" aria-labelledby="discovery-result-heading" hidden>
+        <img class="result-logo" src="/src/assets/macha-tune-logo.png" alt="MACHA-TUNE">
+        <h2 id="discovery-result-heading" tabindex="-1">あなたへのおすすめ</h2>
+        <p id="discovery-summary"></p>
+        <div id="discovery-cards"></div>
+        <div id="discovery-share-actions" hidden>
+          <button id="copy-discovery-share" class="primary-button" type="button"></button>
+          <p id="discovery-share-status" role="status" hidden></p>
+          <textarea id="discovery-share-message" aria-label="Slack用の投稿文" readonly hidden></textarea>
+        </div>
+        <button id="edit-discovery" class="secondary-button" type="button">選択を変更する</button>
+        <div id="discovery-refine"></div>
+      </section>
       <section id="music-quiz" aria-labelledby="first-question" hidden>
         <button id="restart-quiz" type="button"><span class="restart-icon" aria-hidden="true">↶</span><span>はじめからやり直す</span></button>
         <img class="quiz-logo" src="/src/assets/macha-tune-logo.png" alt="MACHA-TUNE">
@@ -46,8 +88,10 @@
           <span class="listening-record" aria-hidden="true">♪</span><h3 id="listening-tip-title">次の一曲の楽しみ方</h3>
           <p class="result-listening-tip"></p>
         </section>
-        <button id="review-answers" type="button">回答を見直す</button>
-        <button id="open-song-entry" type="button">おすすめ曲を登録する</button>
+        <div class="result-actions">
+          <button id="open-song-entry" class="primary-button" type="button">おすすめ曲を登録する</button>
+          <button id="review-answers" class="secondary-button" type="button">回答を見直す</button>
+        </div>
       </section>
       <section id="song-entry-screen" hidden>
         <img class="result-logo" src="/src/assets/macha-tune-logo.png" alt="MACHA-TUNE">
@@ -55,19 +99,28 @@
         <fieldset class="share-count"><legend>シェアする曲数</legend><label><input type="radio" name="share-count" value="1" checked>1曲をシェア</label><label><input type="radio" name="share-count" value="3">3曲をシェア</label></fieldset>
         <fieldset id="keep-theme-choice" hidden><legend>1曲にする場合、残すテーマを選んでください</legend><select id="keep-theme-select"></select><button id="confirm-count-change" type="button">このテーマを残す</button><button id="cancel-count-change" type="button">キャンセル</button></fieldset>
         <div id="song-fields"></div>
-        <label class="display-name-field">表示名（任意）<input id="display-name" maxlength="30" type="text"></label>
+        <label class="display-name-field">ユーザー名（任意）<input id="display-name" maxlength="30" type="text"></label>
         <p id="song-entry-error" class="quiz-error" role="alert" hidden></p>
-        <button id="preview-share" type="button">プレビューを見る</button>
+        <button id="preview-share" type="button">登録してプレビューを見る</button>
         <button id="back-to-result" type="button">結果に戻る</button>
       </section>
-      <section id="song-preview-screen" hidden>
+      <section id="song-preview-screen" class="share-preview-layout" hidden>
         <img class="result-logo" src="/src/assets/macha-tune-logo.png" alt="MACHA-TUNE">
-        <h2>共有前プレビュー</h2>
+        <h2 tabindex="-1">共有前プレビュー</h2>
         <p id="preview-result-type"></p>
         <div id="song-preview-content"></div>
-        <button id="edit-songs" type="button">編集に戻る</button>
-        <button id="preview-back-result" type="button">結果に戻る</button>
+        <div id="share-actions">
+          <p>リンクを知っている人が閲覧できます。</p>
+          <button id="copy-slack-share" type="button">Slack用の投稿文をコピー</button>
+          <p id="share-status" role="status" hidden></p>
+          <textarea id="share-message" aria-label="Slack用の投稿文" readonly hidden></textarea>
+          <button id="edit-songs" type="button">編集に戻る</button>
+          <button id="preview-back-result" type="button">結果に戻る</button>
+        </div>
       </section>
+      <template id="shared-home-action">
+        <div class="shared-home-action"><a class="primary-button" href="./">診断をする</a></div>
+      </template>
     </main>
     <footer class="site-footer" aria-hidden="true"><span class="footer-record"></span></footer>
   </body>
