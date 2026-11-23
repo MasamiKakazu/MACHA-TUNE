@@ -231,7 +231,9 @@ h2, h3, .song-title { font-weight: 700; }
 #discovery-extra-genres fieldset { margin: 10px 0 0; }
 #discovery-any-genre { margin-top: 8px; }
 #discovery-selected-genres { margin: 8px 0 0; font-size: .9rem; overflow-wrap: anywhere; }
-#discovery-home, #edit-discovery { margin-top: 16px; }
+#discovery-remove-genres:not(:empty) { margin-top: 8px; }
+#discovery-remove-genres button { min-height: 44px; padding: 4px 10px; border: 1px solid #c9dcd8; border-radius: 999px; background: var(--white); color: var(--navy); cursor: pointer; }
+#discovery-home, #edit-discovery, #more-discovery { margin-top: 16px; }
 #discovery-refine:not(:empty) { margin-top: 16px; }
 #discovery-share-message { display: block; width: 100%; min-height: 100px; margin: 8px auto; }
 #discovery-share-message[hidden] { display: none; }

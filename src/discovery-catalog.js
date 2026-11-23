@@ -1,6 +1,6 @@
 import { songKey, songTrackId } from './song-history.js';
 
-const genre = {
+export const genre = {
   jpop: 'J-POP', kpop: 'K-POP', pop: 'ポップ', rock: 'ロック',
   idol: 'アイドルソング', ballad: 'バラード', dance: 'ダンス曲', acoustic: '弾き語り',
   hiphop: 'ヒップホップ', rnb: 'R&B', edm: 'EDM', house: 'ハウス',
@@ -23,9 +23,10 @@ export const extraGenreGroups = [
   { name: '音の雰囲気', genres: [mood.lofi] },
 ];
 export const regions = ['どちらでも', '国内', '海外'];
+export const vocalFilters = { any: '指定なし', female: '女性ボーカル', male: '男性ボーカル' };
 
 // Use one Apple catalogue track ID per song and classify by the artist's scene.
-const catalog = [
+export const curatedSongs = [
   { id: 1499615822, title: 'KissHug', artist: 'aiko', tags: [genre.jpop, genre.pop], region: '国内', reason: 'ピアノと歌声がゆっくり重なる、メロディをじっくり味わえる一曲。' },
   { id: 1039793121, title: '新宝島', artist: 'サカナクション', tags: [genre.jpop, genre.rock, genre.dancepop], region: '国内', reason: 'シンセのフレーズと弾むリズムが耳に残る一曲。' },
   { id: 1109986324, title: 'カブトムシ', artist: 'aiko', tags: [genre.jpop, genre.pop], region: '国内', reason: '柔らかな歌い出しから、サビに向けて声が伸びていく一曲。' },
@@ -39,9 +40,9 @@ const catalog = [
   { id: 697195462, title: 'One More Time', artist: 'Daft Punk', tags: [genre.house, genre.electro], region: '海外', reason: '反復するハウスのビートと加工された歌声が自然に気分を上げてくれます。' },
   { id: 301002607, title: 'Show Me Love', artist: 'Robin S.', tags: [genre.house], region: '海外', reason: 'オルガンのリフに乗る伸びやかな歌声が際立つハウスの定番です。' },
   { id: 1440856647, title: 'Latch', artist: 'Disclosure & Sam Smith', tags: [genre.house], region: '海外', reason: '細かく刻むビートとサム・スミスの伸びる声が対照的です。' },
-  { id: 994425114, title: 'View', artist: 'SHINee', tags: [genre.kpop, genre.house, genre.dancepop], region: '海外', reason: 'ディープハウスの軽い足取りに、5人の歌声が重なります。' },
-  { id: 1052057279, title: '4 Walls', artist: 'f(x)', tags: [genre.kpop, genre.house, genre.dancepop], region: '海外', reason: '抑えた歌声と柔らかなシンセが、ハウスのビートに溶け込みます。' },
-  { id: 1713266694, title: 'Perfect Night', artist: 'LE SSERAFIM', tags: [genre.kpop, genre.pop], region: '海外', reason: '軽く跳ねるビートと親しみやすいメロディが心地よい一曲。' },
+  { id: 994425114, title: 'View', artist: 'SHINee', tags: [genre.kpop, genre.house, genre.dancepop, genre.idol, genre.pop, genre.dance], region: '海外', reason: 'ディープハウスの軽い足取りに、5人の歌声が重なります。' },
+  { id: 1052057279, title: '4 Walls', artist: 'f(x)', tags: [genre.kpop, genre.house, genre.dancepop, genre.idol, genre.pop, genre.dance], region: '海外', reason: '抑えた歌声と柔らかなシンセが、ハウスのビートに溶け込みます。' },
+  { id: 1713266694, title: 'Perfect Night', artist: 'LE SSERAFIM', tags: [genre.kpop, genre.pop, genre.idol], region: '海外', reason: '軽く跳ねるビートと親しみやすいメロディが心地よい一曲。' },
   { id: 1440787349, title: 'Levels', artist: 'Avicii', tags: [genre.edm, genre.house], region: '海外', reason: '明るいシンセのフレーズが繰り返され、曲の高揚感を引っ張ります。' },
   { id: 1440861976, title: 'Clarity (feat. Foxes)', artist: 'Zedd', tags: [genre.edm, genre.electro], region: '海外', reason: '伸びやかなボーカルから一気に広がるドロップが聴きどころです。' },
   { id: 693246567, title: 'Titanium (feat. Sia)', artist: 'David Guetta', tags: [genre.edm, genre.dancepop], region: '海外', reason: 'Siaの力強い声と大きく展開するシンセが響き合います。' },
@@ -64,40 +65,68 @@ const catalog = [
   { id: 1452539461, title: 'ベルガマスク組曲 第3曲「月の光」', artist: 'ジャン＝イヴ・ティボーデ', tags: [genre.classical], region: '海外', reason: 'ピアノの柔らかな音と静かな間合いをじっくり味わえます。' },
   { id: 1514738806, title: 'Bungee', artist: 'BAEKHYUN', tags: [genre.kpop, genre.rnb, mood.lofi], region: '海外', reason: '柔らかな鍵盤と軽く揺れるビートが、くつろいだ雰囲気をつくります。' },
   { id: 1471975982, title: 'UN Village', artist: 'BAEKHYUN', tags: [genre.kpop, genre.rnb, mood.lofi], region: '海外', reason: '控えめなビートと余白のある歌声が、夜に合う落ち着いた雰囲気です。' },
-  { id: 1457175657, title: 'MIROH', artist: 'Stray Kids', tags: [genre.kpop, genre.edm], region: '海外', reason: 'ラップからシンセと太いビートが前に出る展開に勢いがあります。' },
-  { id: 1569280075, title: 'DUN DUN', artist: 'EVERGLOW', tags: [genre.kpop, genre.edm, genre.dancepop], region: '海外', reason: '鋭いシンセと重い低音が、サビの前後で一気に広がります。' },
-  { id: 463402687, title: 'I AM THE BEST', artist: '2NE1', tags: [genre.kpop, genre.edm, genre.electro], region: '海外', reason: '歯切れのよい歌と強い電子ビートが、曲の勢いを作ります。' },
+  { id: 1457175657, title: 'MIROH', artist: 'Stray Kids', tags: [genre.kpop, genre.edm, genre.idol, genre.dance], region: '海外', reason: 'ラップからシンセと太いビートが前に出る展開に勢いがあります。' },
+  { id: 1569280075, title: 'DUN DUN', artist: 'EVERGLOW', tags: [genre.kpop, genre.edm, genre.dancepop, genre.idol, genre.dance], region: '海外', reason: '鋭いシンセと重い低音が、サビの前後で一気に広がります。' },
+  { id: 463402687, title: 'I AM THE BEST', artist: '2NE1', tags: [genre.kpop, genre.edm, genre.electro, genre.idol, genre.dance], region: '海外', reason: '歯切れのよい歌と強い電子ビートが、曲の勢いを作ります。' },
   { id: 814314114, title: 'ギミチョコ!!', artist: 'BABYMETAL', tags: [genre.idol, genre.rock, genre.metal], region: '国内', reason: '重いギターリフと弾む掛け声が交互に飛び出します。' },
   { id: 1147516283, title: 'オーケストラ', artist: 'BiSH', tags: [genre.idol, genre.rock, genre.ballad, genre.jpop], region: '国内', reason: '切ない歌声から、ギターとストリングスが重なるサビへ広がります。' },
-  { id: 681020904, title: '恋するフォーチュンクッキー', artist: 'AKB48', tags: [genre.idol, genre.dance, genre.jpop, genre.disco], region: '国内', reason: '軽快なディスコのビートに合わせて踊りたくなる一曲。' },
-  { id: 1537565400, title: 'きっかけ', artist: '乃木坂46', tags: [genre.idol, genre.ballad, genre.jpop], region: '国内', reason: '穏やかなピアノと、サビで重なる歌声が印象的なバラードです。' },
+  { id: 681020904, title: '恋するフォーチュンクッキー', artist: 'AKB48', tags: [genre.idol, genre.dance, genre.jpop, genre.disco, genre.pop], region: '国内', reason: '軽快なディスコのビートに合わせて踊りたくなる一曲。' },
+  { id: 1537565400, title: 'きっかけ', artist: '乃木坂46', tags: [genre.idol, genre.ballad, genre.jpop, genre.pop], region: '国内', reason: '穏やかなピアノと、サビで重なる歌声が印象的なバラードです。' },
   { id: 79565507, title: 'Fast Car', artist: 'トレイシー・チャップマン', tags: [genre.acoustic, genre.folk, genre.ballad], region: '海外', reason: '繰り返すアコースティックギターに、語りかけるような歌声が重なります。' },
+  { id: 1207794448, title: 'プロミスザスター', artist: 'BiSH', tags: [genre.idol, genre.rock, genre.jpop], region: '国内', reason: 'ギターとドラムが、力強く歌い上げるサビを支えます。' },
+  { id: 991663279, title: 'BiSH-星が瞬く夜に', artist: 'BiSH', tags: [genre.idol, genre.rock, genre.punk], region: '国内', reason: '疾走するギターと掛け声が一緒に駆け抜けます。' },
+  { id: 814314113, title: 'メギツネ', artist: 'BABYMETAL', tags: [genre.idol, genre.rock, genre.metal], region: '国内', reason: '重いギターに祭囃子を思わせる掛け声が重なります。' },
+  { id: 1083835569, title: 'Road of Resistance', artist: 'BABYMETAL', tags: [genre.idol, genre.rock, genre.metal], region: '国内', reason: '速いギターソロと大きな合唱が織りなす一曲。' },
+  { id: 1537746571, title: 'サヨナラの意味', artist: '乃木坂46', tags: [genre.idol, genre.ballad, genre.jpop, genre.pop], region: '国内', reason: '静かな歌い出しから、サビで声と伴奏が大きく広がります。' },
+  { id: 1537565403, title: '悲しみの忘れ方', artist: '乃木坂46', tags: [genre.idol, genre.ballad, genre.jpop], region: '国内', reason: '穏やかな伴奏に、一緒に歌える伸びやかな旋律が重なります。' },
+  { id: 1062460737, title: '365日の紙飛行機', artist: 'AKB48', tags: [genre.idol, genre.ballad, genre.jpop, genre.pop], region: '国内', reason: 'アコースティックギターと穏やかな歌声で始まる一曲。' },
+  { id: 1260876262, title: 'STAY', artist: 'BLACKPINK', tags: [genre.idol, genre.ballad, genre.kpop], region: '海外', reason: 'ギターとハーモニカの響きに、切ない歌声が寄り添います。' },
+  { id: 1369883181, title: 'What is Love?', artist: 'TWICE', tags: [genre.idol, genre.pop, genre.kpop, genre.dancepop, genre.dance], region: '海外', reason: '弾むリズムと問いかけるようなサビが耳に残ります。' },
+  { id: 1479865077, title: 'Feel Special', artist: 'TWICE', tags: [genre.idol, genre.pop, genre.kpop, genre.edm, genre.dancepop, genre.dance], region: '海外', reason: 'きらめくシンセとハウス調のビートが歌を押し上げます。' },
+  { id: 1458318149, title: 'Kill This Love', artist: 'BLACKPINK', tags: [genre.idol, genre.kpop, genre.edm, genre.dance], region: '海外', reason: 'ブラスのフレーズと重い電子ビートがサビでぶつかります。' },
+  { id: 1773377311, title: 'Whiplash', artist: 'aespa', tags: [genre.idol, genre.kpop, genre.edm, genre.house, genre.dance], region: '海外', reason: '絞り込んだシンセと規則的なキックが曲を引っ張ります。' },
 ];
 
 export function formatDiscoveryGenres(tags) {
   return tags.join(' × ') || 'おまかせ';
 }
 
-export function recommendSongs(selectedGenres, region, registeredSongs = []) {
+export function findDiscoverySongs(catalog, selectedGenres, region, registeredSongs = [], vocal = 'any') {
   const requested = [...new Set(selectedGenres)];
-  const excludedKeys = new Set(registeredSongs.map(song => songKey(song.title, song.artist)));
-  const excludedIds = new Set(registeredSongs.map(song => songTrackId(song.trackId)).filter(Boolean));
-  const candidates = [];
-  for (const song of catalog) {
-    const key = songKey(song.title, song.artist);
-    if (excludedKeys.has(key) || excludedIds.has(String(song.id))) continue;
-    if (region !== regions[0] && song.region !== region) continue;
-    if (!requested.every(tag => song.tags.includes(tag))) continue;
-    excludedKeys.add(key);
-    candidates.push({ ...song, genre: requested.length ? formatDiscoveryGenres(requested) : song.tags[0] });
-  }
-  if (requested.length) return candidates.slice(0, 3);
+  const registeredKeys = new Set(registeredSongs.map(song => songKey(song.title, song.artist)));
+  const registeredIds = new Set(registeredSongs.map(song => songTrackId(song.trackId)));
+  return catalog.filter(song => (region === regions[0] || song.region === region)
+    && (vocal === 'any' || song.vocals?.includes(vocal))
+    && requested.every(tag => song.tags.includes(tag))
+    && !registeredKeys.has(songKey(song.title, song.artist))
+    && !song.titleArtistAliases?.some(key => registeredKeys.has(key))
+    && !registeredIds.has(String(song.appleTrackId)));
+}
 
-  const firstByGenre = new Map();
-  const remaining = [];
-  for (const song of candidates) {
-    if (firstByGenre.has(song.genre)) remaining.push(song);
-    else firstByGenre.set(song.genre, song);
+function sampleSongs(pool, limit) {
+  const count = Math.min(limit, pool.length);
+  for (let index = 0; index < count; index += 1) {
+    const other = index + Math.floor(Math.random() * (pool.length - index));
+    [pool[index], pool[other]] = [pool[other], pool[index]];
   }
-  return [...firstByGenre.values(), ...remaining].slice(0, 3);
+  return pool.slice(0, count);
+}
+
+export function drawDiscoverySongs(candidates, selectedGenres, introducedIds, previousIds) {
+  const newSongs = [];
+  const olderSongs = [];
+  const previousSongs = [];
+  for (const song of candidates) {
+    const id = String(song.id);
+    if (!introducedIds.has(id)) newSongs.push(song);
+    else if (previousIds.has(id)) previousSongs.push(song);
+    else olderSongs.push(song);
+  }
+  const drawn = sampleSongs(newSongs, 3);
+  drawn.push(...sampleSongs(olderSongs, 3 - drawn.length));
+  drawn.push(...sampleSongs(previousSongs, 3 - drawn.length));
+  return drawn.map(({ id, appleTrackId, spotifyTrackId, title, artist, artworkUrl, reason = '', tags }) => ({
+    id, appleTrackId, spotifyTrackId, title, artist, artworkUrl, reason,
+    genre: formatDiscoveryGenres(selectedGenres.length ? selectedGenres : tags.slice(0, 1)),
+  }));
 }

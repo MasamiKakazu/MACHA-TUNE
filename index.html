@@ -35,11 +35,17 @@
               </details>
               <button id="discovery-any-genre" type="button" aria-pressed="true">おまかせ</button>
               <p id="discovery-selected-genres" aria-live="polite">選択中：おまかせ</p>
+              <div id="discovery-remove-genres" class="discovery-options"></div>
             </fieldset>
             <fieldset>
               <legend>国内・海外</legend>
               <div id="discovery-regions" class="discovery-options"></div>
             </fieldset>
+            <fieldset>
+              <legend>ボーカル</legend>
+              <div id="discovery-vocals" class="discovery-options"></div>
+            </fieldset>
+            <p id="discovery-availability" role="status"></p>
             <button class="primary-button" type="submit">おすすめの曲を見る</button>
           </form>
           <button id="discovery-home" class="secondary-button" type="button">トップに戻る</button>
@@ -55,6 +61,7 @@
           <p id="discovery-share-status" role="status" hidden></p>
           <textarea id="discovery-share-message" aria-label="Slack用の投稿文" readonly hidden></textarea>
         </div>
+        <button id="more-discovery" class="primary-button" type="button" hidden>別の曲を見つける</button>
         <button id="edit-discovery" class="secondary-button" type="button">選択を変更する</button>
         <div id="discovery-refine"></div>
       </section>

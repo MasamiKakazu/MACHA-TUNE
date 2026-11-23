@@ -1,8 +1,8 @@
-import { appleTrackId, appleTrackUrl, createServiceLinks, resolveServiceLinks, savedServiceLinks } from './music-links.js';
+import { appleTrackId, appleTrackUrl, createServiceLinks, resolveServiceLinks, savedServiceLinks, spotifyTrackUrl } from './music-links.js';
 import { createSongPreviewControls, getTrackPreview, stopSongPreview } from './song-preview-audio.js';
-import { mainGenres, extraGenreGroups, regions, formatDiscoveryGenres, recommendSongs } from './discovery-catalog.js';
+import { mainGenres, extraGenreGroups, regions, vocalFilters, formatDiscoveryGenres, findDiscoverySongs, drawDiscoverySongs } from './discovery-catalog.js';
 import { largeCatalogArtwork, lookupCatalogTracks, searchCatalogTracks } from './music-catalog.js';
-import { readRegisteredSongs, saveRegisteredSongs, songTrackId } from './song-history.js';
+import { readIntroducedSongIds, readPreviousRecommendationIds, readRegisteredSongs, saveIntroducedSongs, saveRegisteredSongs, songTrackId } from './song-history.js';
 import { sharePages } from './share-pages.js';
 import lyricsCharacter from './assets/charactors/lyrics.png';
 import melodyCharacter from './assets/charactors/melody.png';
@@ -580,18 +580,25 @@ async function restoreSharedCatalog(songs, cards) {
   songs.forEach((song, index) => hydrateSharedCard(cards[index], song, metadata.get(ids[index])));
 }
 
-function hydrateSharedCard(card, song, metadata) {
-  if (!card.isConnected || !metadata) return;
+function hydrateSharedCard(card, song, metadata, shared = true) {
+  if (!card.isConnected) return;
   const artwork = card.querySelector('.preview-artwork-wrap');
-  if (!song.selection?.artworkUrl && metadata.artworkUrl) {
-    artwork.replaceWith(createCardArtwork(song.title, metadata.artworkUrl, true));
+  if (!song.selection?.artworkUrl && metadata?.artworkUrl) {
+    artwork.replaceWith(createCardArtwork(song.title, metadata.artworkUrl, shared));
   }
-  if (!song.selection?.albumName) {
-    const album = createCardAlbum(song.title, metadata.albumName, true);
+  if (!song.selection?.albumName && metadata?.albumName) {
+    const album = createCardAlbum(song.title, metadata.albumName, shared);
     if (album) card.querySelector('.song-artist').after(album);
   }
-  if (metadata.preview) {
-    card.querySelector('.song-preview-info').append(createSongPreviewControls(metadata.preview, '▶ 試聴する'));
+  const preview = song.selection?.preview ?? metadata?.preview;
+  if (preview) {
+    card.querySelector('.song-preview-info').querySelector('.song-preview-controls')?.remove();
+    card.querySelector('.song-preview-info').append(createSongPreviewControls(preview, shared ? '▶ 試聴する' : undefined));
+  } else if (!card.querySelector('.song-preview-info .song-preview-unavailable')) {
+    const unavailable = document.createElement('p');
+    unavailable.className = 'song-preview-unavailable';
+    unavailable.textContent = '試聴音源なし';
+    card.querySelector('.song-preview-info').append(unavailable);
   }
 }
 
@@ -599,20 +606,26 @@ const anyGenre = document.querySelector('#discovery-any-genre');
 const genreOptions = document.querySelector('#discovery-genres');
 const extraGenres = document.querySelector('#discovery-extra-genres');
 const selectedGenres = document.querySelector('#discovery-selected-genres');
+const removeGenres = document.querySelector('#discovery-remove-genres');
+const discoveryAvailability = document.querySelector('#discovery-availability');
+const discoverySubmit = discoveryForm.querySelector('[type="submit"]');
+const moreDiscovery = document.querySelector('#more-discovery');
 const discoveryShareActions = document.querySelector('#discovery-share-actions');
 const discoveryMessage = document.querySelector('#discovery-share-message');
 const discoveryStatus = document.querySelector('#discovery-share-status');
 let discoveryRequest;
 let discoveryShareData;
+let discoveryCatalog;
+let discoveryCatalogRequest;
 
-function discoveryOption(name, value, type, checked = false) {
+function discoveryOption(name, value, type, checked = false, text = value) {
   const input = document.createElement('input');
   input.name = name;
   input.type = type;
   input.value = value;
   input.checked = checked;
   const label = document.createElement('label');
-  label.append(input, value);
+  label.append(input, text);
   return label;
 }
 
@@ -629,16 +642,41 @@ for (const group of extraGenreGroups) {
 }
 document.querySelector('#discovery-regions').append(
   ...regions.map((region, index) => discoveryOption('region', region, 'radio', index === 0)));
+document.querySelector('#discovery-vocals').append(...Object.entries(vocalFilters).map(([value, label]) =>
+  discoveryOption('vocal', value, 'radio', value === 'any', label)));
 
 function updateGenreSelection() {
-  const selected = new FormData(discoveryForm).getAll('genre');
-  anyGenre.setAttribute('aria-pressed', String(selected.length === 0));
-  selectedGenres.textContent = `選択中：${formatDiscoveryGenres(selected)}`;
+  const checked = [...discoveryForm.querySelectorAll('[name="genre"]:checked')];
+  anyGenre.setAttribute('aria-pressed', String(checked.length === 0));
+  selectedGenres.textContent = `選択中：${formatDiscoveryGenres(checked.map(input => input.value))}`;
+  removeGenres.replaceChildren(...checked.map(input => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = `${input.value}を外す`;
+    button.addEventListener('click', () => {
+      input.checked = false;
+      updateGenreSelection();
+      (removeGenres.querySelector('button') ?? anyGenre).focus();
+    });
+    return button;
+  }));
+  if (!discoveryCatalog) return;
+  const { candidates } = discoverySelection();
+  discoveryAvailability.textContent = candidates.length
+    ? `条件に合う曲：${candidates.length}曲`
+    : '条件に合う曲が見つかりませんでした';
 }
 
-discoveryForm.addEventListener('change', event => {
-  if (event.target.name === 'genre') updateGenreSelection();
-});
+function discoverySelection() {
+  const values = new FormData(discoveryForm);
+  const genres = values.getAll('genre');
+  const region = values.get('region');
+  const vocal = values.get('vocal');
+  const candidates = findDiscoverySongs(discoveryCatalog, genres, region, readRegisteredSongs(), vocal);
+  return { genres, region, vocal, candidates };
+}
+
+discoveryForm.addEventListener('change', updateGenreSelection);
 anyGenre.addEventListener('click', () => {
   for (const input of discoveryForm.querySelectorAll('[name="genre"]:checked')) input.checked = false;
   updateGenreSelection();
@@ -648,7 +686,20 @@ function openDiscovery() {
   if (discoveryControls.parentElement !== discoveryScreen) discoveryScreen.append(discoveryControls);
   home.hidden = true;
   discoveryScreen.hidden = false;
+  updateGenreSelection();
   document.querySelector('#discovery-heading').focus();
+  if (discoveryCatalog || discoveryCatalogRequest) return;
+  discoverySubmit.disabled = true;
+  discoveryAvailability.textContent = '選曲リストを読み込んでいます…';
+  discoveryCatalogRequest = import('virtual:macha-tune-discovery').then(({ default: catalog }) => {
+    discoveryCatalog = catalog;
+    discoverySubmit.disabled = false;
+    updateGenreSelection();
+  }).catch(() => {
+    discoveryAvailability.textContent = '選曲リストを読み込めませんでした。ページを再読み込みしてください。';
+  }).finally(() => {
+    discoveryCatalogRequest = undefined;
+  });
 }
 
 function closeDiscoveryResults() {
@@ -660,11 +711,25 @@ function closeDiscoveryResults() {
 
 function validateDiscoveryShare(data) {
   if (!Array.isArray(data.genres) || !data.genres.every(genre => typeof genre === 'string')
+    || (data.vocal !== undefined && !Object.hasOwn(vocalFilters, data.vocal))
     || typeof data.region !== 'string' || !Array.isArray(data.songs) || data.songs.length < 1 || data.songs.length > 3
-    || !data.songs.every(song => song && Number.isSafeInteger(song.id) && song.id > 0
+    || !data.songs.every(song => song && (discoveryAppleTrackId(song) || spotifyTrackUrl(song.spotifyTrackId))
       && [song.title, song.artist, song.genre, song.reason].every(value => typeof value === 'string'))) {
     throw new Error('Invalid discovery share');
   }
+}
+
+function discoveryAppleTrackId(song) {
+  return songTrackId(song.appleTrackId ?? song.id);
+}
+
+function discoveryArtworkUrl(song) {
+  const url = safeHttpsUrl(song.artworkUrl);
+  return url?.startsWith('https://i.scdn.co/image/') ? url : '';
+}
+
+function normalizeCatalogText(value) {
+  return value.normalize('NFKC').toLowerCase().replace(/\s+/gu, '');
 }
 
 function renderDiscoveryResults(data, shared = false) {
@@ -675,37 +740,71 @@ function renderDiscoveryResults(data, shared = false) {
   const heading = document.querySelector('#discovery-result-heading');
   heading.textContent = shared ? 'MACHA-TUNEで見つけた曲' : 'あなたへのおすすめ';
   discoveryShareData = data;
-  const { songs, region } = data;
+  const { songs, region, vocal } = data;
   const count = songs.length;
   discoveryShareActions.hidden = shared || count === 0;
+  moreDiscovery.hidden = shared || count === 0;
   discoveryEdit.hidden = shared;
   discoveryEdit.textContent = count ? '選択を変更する' : '別のジャンルで探す';
   discoveryMessage.hidden = true;
   discoveryStatus.hidden = true;
   discoveryShare.textContent = `この${count}曲をSlackで共有`;
-  const summary = `${formatDiscoveryGenres(data.genres)} / ${region}`;
-  discoverySummary.textContent = shared ? (region === regions[0] ? formatDiscoveryGenres(data.genres) : summary)
-    : `${summary}　${count}曲${count ? '' : '（この組み合わせの曲はまだ見つかりませんでした）'}`;
-  if (!count) discoveryRefine.append(discoveryControls);
+  const conditions = [formatDiscoveryGenres(data.genres)];
+  if (!shared || region !== regions[0]) conditions.push(region);
+  if (vocal !== undefined) conditions.push(`ボーカル：${vocalFilters[vocal]}`);
+  const summary = conditions.join(' / ');
+  discoverySummary.textContent = shared ? summary : `${summary}　${count}曲`;
+  if (!count) {
+    discoveryRefine.append(discoveryControls);
+    updateGenreSelection();
+  }
   else if (discoveryControls.parentElement !== discoveryScreen) discoveryScreen.append(discoveryControls);
-  const renderCards = (metadata = new Map()) => {
-    discoveryCards.replaceChildren(...songs.map(song => createSongCard({
-      ...song,
-      theme: song.genre,
-      selection: { links: { appleMusic: appleTrackUrl({ trackId: song.id }) }, ...metadata.get(String(song.id)) },
-    }, shared)));
-  };
-  renderCards();
+  const drafts = songs.map(song => ({
+    ...song,
+    theme: song.genre,
+    links: {
+      appleMusic: appleTrackUrl({ trackId: discoveryAppleTrackId(song) }),
+      spotify: spotifyTrackUrl(song.spotifyTrackId),
+    },
+    selection: { artworkUrl: discoveryArtworkUrl(song), preview: song.preview },
+  }));
+  discoveryCards.replaceChildren(...drafts.map(draft => createSongCard(draft, shared)));
   const cards = [...discoveryCards.children];
   heading.focus();
-  if (!count) return;
+  const appleIds = songs.map(discoveryAppleTrackId);
+  if (!appleIds.some(Boolean)) {
+    drafts.forEach((draft, index) => hydrateSharedCard(cards[index], draft, undefined, shared));
+    return;
+  }
   const request = new AbortController();
   discoveryRequest = request;
   const signal = AbortSignal.any([request.signal, AbortSignal.timeout(8000)]);
-  void lookupCatalogTracks(songs.map(song => song.id), signal).then(metadata => {
+  void lookupCatalogTracks(appleIds.filter(Boolean), signal).then(async metadata => {
     if (request.signal.aborted) return;
-    if (shared) songs.forEach((song, index) => hydrateSharedCard(cards[index], song, metadata.get(String(song.id))));
-    else renderCards(metadata);
+    const missing = drafts.map((draft, index) => draft.selection.preview ? -1 : index)
+      .filter(index => index >= 0);
+    await Promise.all(missing.map(async index => {
+      const track = songs[index];
+      const term = [track.title, track.artist].filter(Boolean).join(' ').trim();
+      if (!term) return;
+      try {
+        const found = await searchCatalogTracks(term);
+        if (request.signal.aborted) return;
+        const title = normalizeCatalogText(track.title);
+        const artist = normalizeCatalogText(track.artist);
+        const match = found.find(item => normalizeCatalogText(item.trackName ?? '') === title
+          && normalizeCatalogText(item.artistName ?? '') === artist
+          && typeof item.previewUrl === 'string' && item.previewUrl);
+        if (match) drafts[index].selection.preview = getTrackPreview(match, appleTrackUrl(match));
+      } catch {
+        // Search failure leaves the explicit unavailable message in place.
+      }
+    }));
+    if (request.signal.aborted) return;
+    drafts.forEach((draft, index) => hydrateSharedCard(cards[index], {
+      ...draft,
+      selection: { ...draft.selection, preview: draft.selection.preview ?? metadata.get(appleIds[index])?.preview },
+    }, metadata.get(appleIds[index]), shared));
   }).catch(() => {});
 }
 
@@ -724,19 +823,26 @@ discoveryEdit.addEventListener('click', () => {
   closeDiscoveryResults();
   openDiscovery();
 });
+function showDiscoveryRecommendations() {
+  if (!discoveryCatalog) return;
+  const { genres, region, vocal, candidates } = discoverySelection();
+  const drawn = drawDiscoverySongs(candidates, genres, readIntroducedSongIds(), readPreviousRecommendationIds());
+  saveIntroducedSongs(drawn);
+  const songs = drawn.map(({ id, ...song }) => song);
+  renderDiscoveryResults({ kind: 'discovery', genres, region, vocal, songs });
+}
+
+moreDiscovery.addEventListener('click', showDiscoveryRecommendations);
 discoveryForm.addEventListener('submit', event => {
   event.preventDefault();
-  const form = new FormData(discoveryForm);
-  const selected = form.getAll('genre');
-  const region = form.get('region');
-  const songs = recommendSongs(selected, region, readRegisteredSongs());
-  renderDiscoveryResults({ kind: 'discovery', genres: selected, region, songs });
+  showDiscoveryRecommendations();
 });
 discoveryShare.addEventListener('click', () => {
-  const { genres: selected } = discoveryShareData;
+  const { genres: selected, vocal } = discoveryShareData;
   const post = sharePost('discovery', discoveryShareData, [
     '【MACHA-TUNEで見つけた楽曲】',
     `ジャンル：${formatDiscoveryGenres(selected)}`,
+    `ボーカル：${vocalFilters[vocal]}`,
   ]);
   void copySharePost(post, discoveryMessage, discoveryStatus);
 });

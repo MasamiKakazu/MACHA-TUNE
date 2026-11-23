@@ -37,6 +37,10 @@ export function appleTrackUrl(track) {
   return /^\d+$/.test(trackId) ? `https://music.apple.com/jp/song/${trackId}` : '';
 }
 
+export function spotifyTrackUrl(trackId) {
+  return /^[A-Za-z0-9]{22}$/.test(trackId) ? `https://open.spotify.com/track/${trackId}` : '';
+}
+
 export function appleTrackId(value) {
   const url = serviceUrl('appleMusic', value);
   if (!url) return '';

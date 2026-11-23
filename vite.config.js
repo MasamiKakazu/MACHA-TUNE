@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { defineConfig, loadEnv } from 'vite';
 import { sharePages } from './src/share-pages.js';
 import { installCatalogMiddleware } from './catalog-server.js';
+import { discoveryCatalogPlugin } from './discovery-import.js';
 
 const bannerName = 'share-banner.png';
 const banner = readFileSync(new URL('./docs/images/macha-tune-banner.png', import.meta.url));
@@ -73,6 +74,7 @@ export default defineConfig(({ command, isPreview, mode }) => {
   return {
     base: command === 'build' || isPreview ? '/MACHA-TUNE/' : '/',
     plugins: [
+      discoveryCatalogPlugin(),
       {
         name: 'macha-tune-catalog',
         configureServer: installCatalogMiddleware,

@@ -77,7 +77,7 @@ export function createSongPreviewControls(preview, playLabel = '▶ 試聴') {
     const player = activePreview;
     const request = ++player.request;
     player.playing = true;
-    button.textContent = '⏸ 一時停止';
+    button.textContent = '■ 停止';
     try {
       await player.audio.play();
     } catch {
