@@ -11,6 +11,26 @@ export const genre = {
 };
 const mood = { lofi: 'Lo-Fi' };
 
+// The catalog has listening notes and genre tags, but no lyrics or audio analysis.
+const listeningPreferences = {
+  lyrics: {
+    notes: /歌詞|物語|語りかけ|ラップ/,
+    tags: [genre.folk, genre.acoustic, genre.hiphop],
+  },
+  melody: {
+    notes: /メロディ|旋律|覚えやすいサビ|一緒に歌える|歌い上げる/,
+    tags: [genre.pop, genre.jpop, genre.kpop, genre.dancepop, genre.ballad],
+  },
+  rhythm: {
+    notes: /ビート|リズム|グルーヴ|拍子|キック|裏拍|ドラム|低音/,
+    tags: [genre.dance, genre.edm, genre.house, genre.funk, genre.disco, genre.hiphop, genre.techno, genre.trance, genre.dnb, genre.reggae],
+  },
+  atmosphere: {
+    notes: /余韻|余白|雰囲気|音色|響き|静かな間合い|都会的/,
+    tags: [mood.lofi, genre.citypop, genre.bossa, genre.classical],
+  },
+};
+
 export const mainGenres = [
   genre.jpop, genre.kpop, genre.pop, genre.rock, genre.hiphop, genre.rnb, genre.edm, genre.house,
   genre.idol, genre.ballad, genre.dance, genre.acoustic,
@@ -103,28 +123,42 @@ export function findDiscoverySongs(catalog, selectedGenres, region, registeredSo
     && !registeredIds.has(String(song.appleTrackId)));
 }
 
-function sampleSongs(pool, limit) {
-  const count = Math.min(limit, pool.length);
-  for (let index = 0; index < count; index += 1) {
+function shuffleSongs(pool) {
+  for (let index = 0; index < pool.length; index += 1) {
     const other = index + Math.floor(Math.random() * (pool.length - index));
     [pool[index], pool[other]] = [pool[other], pool[index]];
   }
-  return pool.slice(0, count);
+  return pool;
 }
 
-export function drawDiscoverySongs(candidates, selectedGenres, introducedIds, previousIds) {
-  const newSongs = [];
-  const olderSongs = [];
-  const previousSongs = [];
-  for (const song of candidates) {
+export function drawDiscoverySongs(candidates, selectedGenres, introducedIds, previousIds, typeId) {
+  const preference = listeningPreferences[typeId];
+  const score = song => {
+    if (!preference) return 0;
+    const noteScore = preference.notes.test(song.reason ?? '') ? 2 : 0;
+    const tagScore = preference.tags.some(tag => song.tags.includes(tag)) ? 1 : 0;
+    return noteScore + tagScore;
+  };
+  let ranked = shuffleSongs([...candidates]).map(song => {
     const id = String(song.id);
-    if (!introducedIds.has(id)) newSongs.push(song);
-    else if (previousIds.has(id)) previousSongs.push(song);
-    else olderSongs.push(song);
+    const historyRank = !introducedIds.has(id) ? 0 : previousIds.has(id) ? 2 : 1;
+    return {
+      song,
+      id,
+      key: songKey(song.title, song.artist),
+      artists: song.artist.split(',').map(artist => songKey('', artist)),
+      historyRank,
+      score: score(song),
+    };
+  }).sort((a, b) => a.historyRank - b.historyRank || b.score - a.score);
+  const drawn = [];
+  const chosenArtists = new Set();
+  while (drawn.length < 3 && ranked.length) {
+    const entry = ranked.find(candidate => candidate.artists.every(artist => !chosenArtists.has(artist))) ?? ranked[0];
+    drawn.push(entry.song);
+    entry.artists.forEach(artist => chosenArtists.add(artist));
+    ranked = ranked.filter(candidate => candidate.id !== entry.id && candidate.key !== entry.key);
   }
-  const drawn = sampleSongs(newSongs, 3);
-  drawn.push(...sampleSongs(olderSongs, 3 - drawn.length));
-  drawn.push(...sampleSongs(previousSongs, 3 - drawn.length));
   return drawn.map(({ id, appleTrackId, spotifyTrackId, title, artist, artworkUrl, reason = '', tags }) => ({
     id, appleTrackId, spotifyTrackId, title, artist, artworkUrl, reason,
     genre: formatDiscoveryGenres(selectedGenres.length ? selectedGenres : tags.slice(0, 1)),
