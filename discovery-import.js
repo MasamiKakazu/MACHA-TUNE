@@ -92,8 +92,13 @@ const playlistTags = new Map([
   ['classical_essentials', [genre.classical]],
   ['global_r&b', [genre.rnb]],
   ['r&b_jp', [genre.rnb]],
+  ...[
+    'this_is_dreams_come_true', 'this_is_juju', 'this_is_サザンオールスターズ',
+    'this_is_宇多田ヒカル_-_hikaru_utada_-',
+  ].map(name => [name, [genre.jpop]]),
+  ['k-pop_mix', [genre.kpop]],
   ['gacha_pop', [genre.pop]],
-  ['令和ポップス', [genre.pop]],
+  ['令和ポップス', [genre.pop, genre.jpop]],
   ['jpop_女性ボーカル', [genre.jpop]],
   ['grunge_forever', [genre.rock, genre.alternative]],
   ['jazz_classics', [genre.jazz]],
@@ -112,6 +117,15 @@ const playlistTags = new Map([
     '超絶可愛いアイドルソング', ...maleVocalPlaylists,
   ].map(name => [name, [genre.idol]]),
 ]);
+
+// Explicit J-pop playlist labels also apply to future CSV imports.
+function genresFromPlaylist(name) {
+  const tags = playlistTags.get(name) ?? [];
+  if (/(?:^|[^a-z0-9])j[\s_-]*pop(?:$|[^a-z0-9])/i.test(name.normalize('NFKC'))) {
+    return [...tags, genre.jpop];
+  }
+  return tags;
+}
 
 const domesticPlaylists = new Set([
   '+81_connect_j-hiphop_最新注目曲', 'r&b_jp', 'jpop_女性ボーカル', '女性ボーカル_邦ロック',
@@ -191,7 +205,7 @@ export function buildDiscoveryCatalog() {
       if (vocals.length && !song.vocals?.length) song.vocals = vocals;
     }
     if (artworkUrl?.startsWith('https://i.scdn.co/image/')) song.artworkUrl ??= artworkUrl;
-    song.tags = [...new Set([...song.tags, ...[...playlists].flatMap(name => playlistTags.get(name) ?? [])])];
+    song.tags = [...new Set([...song.tags, ...[...playlists].flatMap(genresFromPlaylist)])];
     if (rockRecordings.has(spotifyTrackId) && !song.tags.includes(genre.rock)) song.tags.push(genre.rock);
     if (!song.region && [...playlists].some(name => domesticPlaylists.has(name))) song.region = regions[1];
   }
