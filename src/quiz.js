@@ -63,6 +63,13 @@ const resultAnswer = document.querySelector('.result-answer');
 const resultInsight = document.querySelector('.result-insight');
 const resultListeningTip = document.querySelector('.result-listening-tip');
 const resultCharacter = document.querySelector('.result-character');
+const diagnosisCards = document.querySelector('#diagnosis-recommendation-cards');
+const diagnosisStatus = document.querySelector('#diagnosis-recommendation-status');
+const typedDiscovery = document.querySelector('#open-typed-discovery');
+const diagnosisTypeKey = 'macha-tune:diagnosis-type';
+let latestDiagnosisType;
+let diagnosisRecommendationType;
+let diagnosisRecommendationRequest;
 const reviewButton = document.querySelector('#review-answers');
 const songEntryScreen = document.querySelector('#song-entry-screen');
 const songPreviewScreen = document.querySelector('#song-preview-screen');
@@ -83,6 +90,12 @@ const discoverySummary = document.querySelector('#discovery-summary');
 const discoveryShare = document.querySelector('#copy-discovery-share');
 const discoveryEdit = document.querySelector('#edit-discovery');
 const discoveryHome = document.querySelector('#discovery-home');
+const discoveryBackResult = document.querySelector('#discovery-back-result');
+const discoveryTypeOptions = document.querySelector('#discovery-type-options');
+const discoveryUseType = document.querySelector('#discovery-use-type');
+const discoveryTypeStatus = document.querySelector('#discovery-type-status');
+let discoveryType;
+let discoveryFromDiagnosis = false;
 const discoveryRefine = document.querySelector('#discovery-refine');
 const discoveryControls = document.querySelector('#discovery-controls');
 const themes = ['ここ最近で一番アツい曲', '元気を出したいとき', '落ち着きたいとき', 'つい歌いたくなるとき', 'ずっと好きな曲'];
@@ -623,6 +636,15 @@ let discoveryShareData;
 let discoveryCatalog;
 let discoveryCatalogRequest;
 
+function readDiagnosisType() {
+  try {
+    const id = localStorage.getItem(diagnosisTypeKey);
+    return types.find(type => type.id === id) ?? latestDiagnosisType;
+  } catch {
+    return latestDiagnosisType;
+  }
+}
+
 function discoveryOption(name, value, type, checked = false, text = value) {
   const input = document.createElement('input');
   input.name = name;
@@ -651,6 +673,8 @@ document.querySelector('#discovery-vocals').append(...Object.entries(vocalFilter
   discoveryOption('vocal', value, 'radio', value === 'any', label)));
 
 function updateGenreSelection() {
+  discoveryTypeStatus.textContent = discoveryUseType.checked && discoveryType
+    ? `適用中：${discoveryType.name}` : discoveryType?.name ?? '';
   const checked = [...discoveryForm.querySelectorAll('[name="genre"]:checked')];
   anyGenre.setAttribute('aria-pressed', String(checked.length === 0));
   selectedGenres.textContent = `選択中：${formatDiscoveryGenres(checked.map(input => input.value))}`;
@@ -687,23 +711,35 @@ anyGenre.addEventListener('click', () => {
   updateGenreSelection();
 });
 
+function loadDiscoveryCatalog() {
+  if (discoveryCatalog) return Promise.resolve(discoveryCatalog);
+  discoveryCatalogRequest ??= import('virtual:macha-tune-discovery').then(({ default: catalog }) => {
+    discoveryCatalog = catalog;
+    return catalog;
+  }).finally(() => {
+    discoveryCatalogRequest = undefined;
+  });
+  return discoveryCatalogRequest;
+}
+
 function openDiscovery() {
   if (discoveryControls.parentElement !== discoveryScreen) discoveryScreen.append(discoveryControls);
+  stopSongPreview();
   home.hidden = true;
+  resultScreen.hidden = true;
   discoveryScreen.hidden = false;
+  discoveryTypeOptions.hidden = !discoveryType;
+  discoveryHome.textContent = discoveryFromDiagnosis ? '診断結果に戻る' : 'トップに戻る';
   updateGenreSelection();
   document.querySelector('#discovery-heading').focus();
-  if (discoveryCatalog || discoveryCatalogRequest) return;
+  if (discoveryCatalog) return;
   discoverySubmit.disabled = true;
   discoveryAvailability.textContent = '選曲リストを読み込んでいます…';
-  discoveryCatalogRequest = import('virtual:macha-tune-discovery').then(({ default: catalog }) => {
-    discoveryCatalog = catalog;
+  void loadDiscoveryCatalog().then(() => {
     discoverySubmit.disabled = false;
     updateGenreSelection();
   }).catch(() => {
     discoveryAvailability.textContent = '選曲リストを読み込めませんでした。ページを再読み込みしてください。';
-  }).finally(() => {
-    discoveryCatalogRequest = undefined;
   });
 }
 
@@ -750,6 +786,7 @@ function renderDiscoveryResults(data, shared = false) {
   discoveryShareActions.hidden = shared || count === 0;
   moreDiscovery.hidden = shared || count === 0;
   discoveryEdit.hidden = shared;
+  discoveryBackResult.hidden = shared || !discoveryFromDiagnosis || count === 0;
   discoveryEdit.textContent = count ? '選択を変更する' : '別のジャンルで探す';
   discoveryMessage.hidden = true;
   discoveryStatus.hidden = true;
@@ -757,6 +794,7 @@ function renderDiscoveryResults(data, shared = false) {
   const conditions = [formatDiscoveryGenres(data.genres)];
   if (!shared || region !== regions[0]) conditions.push(region);
   if (vocal !== undefined) conditions.push(`ボーカル：${vocalFilters[vocal]}`);
+  if (!shared && discoveryUseType.checked && discoveryType) conditions.push(discoveryType.name);
   const summary = conditions.join(' / ');
   discoverySummary.textContent = shared ? summary : `${summary}　${count}曲`;
   if (!count) {
@@ -764,6 +802,11 @@ function renderDiscoveryResults(data, shared = false) {
     updateGenreSelection();
   }
   else if (discoveryControls.parentElement !== discoveryScreen) discoveryScreen.append(discoveryControls);
+  discoveryRequest = renderRecommendationCards(discoveryCards, songs, shared);
+  heading.focus();
+}
+
+function renderRecommendationCards(container, songs, shared = false) {
   const drafts = songs.map(song => ({
     ...song,
     theme: song.genre,
@@ -773,53 +816,67 @@ function renderDiscoveryResults(data, shared = false) {
     },
     selection: { artworkUrl: discoveryArtworkUrl(song), preview: song.preview },
   }));
-  discoveryCards.replaceChildren(...drafts.map(draft => createSongCard(draft, shared)));
-  const cards = [...discoveryCards.children];
-  heading.focus();
+  const cards = drafts.map(draft => createSongCard(draft, shared));
+  container.replaceChildren(...cards);
   const appleIds = songs.map(discoveryAppleTrackId);
-  if (!appleIds.some(Boolean)) {
-    drafts.forEach((draft, index) => hydrateSharedCard(cards[index], draft, undefined, shared));
-    return;
-  }
   const request = new AbortController();
-  discoveryRequest = request;
   const signal = AbortSignal.any([request.signal, AbortSignal.timeout(8000)]);
-  void lookupCatalogTracks(appleIds.filter(Boolean), signal).then(async metadata => {
+  const metadata = appleIds.some(Boolean)
+    ? lookupCatalogTracks(appleIds.filter(Boolean), signal).catch(() => new Map())
+    : Promise.resolve(new Map());
+  drafts.forEach(async (draft, index) => {
+    let trackMetadata = (await metadata).get(appleIds[index]);
     if (request.signal.aborted) return;
-    const missing = drafts.map((draft, index) => draft.selection.preview ? -1 : index)
-      .filter(index => index >= 0);
-    await Promise.all(missing.map(async index => {
-      const track = songs[index];
-      const term = [track.title, track.artist].filter(Boolean).join(' ').trim();
-      if (!term) return;
+    if (!draft.selection.preview && !trackMetadata?.preview) {
       try {
-        const found = await searchCatalogTracks(term);
-        if (request.signal.aborted) return;
-        const title = normalizeCatalogText(track.title);
-        const artist = normalizeCatalogText(track.artist);
+        const found = await searchCatalogTracks(`${draft.title} ${draft.artist}`);
+        const title = normalizeCatalogText(draft.title);
+        const artist = normalizeCatalogText(draft.artist);
         const match = found.find(item => normalizeCatalogText(item.trackName ?? '') === title
           && normalizeCatalogText(item.artistName ?? '') === artist
           && typeof item.previewUrl === 'string' && item.previewUrl);
-        if (match) drafts[index].selection.preview = getTrackPreview(match, appleTrackUrl(match));
+        if (match) trackMetadata = {
+          artworkUrl: trackMetadata?.artworkUrl || match.artworkUrl100,
+          albumName: trackMetadata?.albumName || match.collectionName,
+          preview: getTrackPreview(match, appleTrackUrl(match)),
+        };
       } catch {
         // Search failure leaves the explicit unavailable message in place.
       }
-    }));
-    if (request.signal.aborted) return;
-    drafts.forEach((draft, index) => hydrateSharedCard(cards[index], {
-      ...draft,
-      selection: { ...draft.selection, preview: draft.selection.preview ?? metadata.get(appleIds[index])?.preview },
-    }, metadata.get(appleIds[index]), shared));
-  }).catch(() => {});
+    }
+    if (!request.signal.aborted) hydrateSharedCard(cards[index], draft, trackMetadata, shared);
+  });
+  return request;
 }
 
-document.querySelector('#open-discovery').addEventListener('click', openDiscovery);
-discoveryHome.addEventListener('click', () => {
+document.querySelector('#open-discovery').addEventListener('click', () => {
+  discoveryFromDiagnosis = false;
+  discoveryType = readDiagnosisType();
+  discoveryUseType.checked = false;
+  openDiscovery();
+});
+typedDiscovery.addEventListener('click', () => {
+  discoveryFromDiagnosis = true;
+  discoveryType = latestDiagnosisType;
+  discoveryUseType.checked = true;
+  openDiscovery();
+});
+
+function leaveDiscovery() {
   closeDiscoveryResults();
   discoveryScreen.hidden = true;
+  if (discoveryFromDiagnosis) {
+    resultScreen.hidden = false;
+    renderDiagnosisRecommendations(latestDiagnosisType);
+    typedDiscovery.focus();
+    return;
+  }
   home.hidden = false;
   document.querySelector('#open-discovery').focus();
-});
+}
+
+discoveryHome.addEventListener('click', leaveDiscovery);
+discoveryBackResult.addEventListener('click', leaveDiscovery);
 discoveryEdit.addEventListener('click', () => {
   if (discoveryControls.parentElement === discoveryRefine) {
     discoveryForm.querySelector('[name="genre"]').focus();
@@ -831,10 +888,15 @@ discoveryEdit.addEventListener('click', () => {
 function showDiscoveryRecommendations() {
   if (!discoveryCatalog) return;
   const { genres, region, vocal, candidates } = discoverySelection();
-  const drawn = drawDiscoverySongs(candidates, genres, readIntroducedSongIds(), readPreviousRecommendationIds());
-  saveIntroducedSongs(drawn);
+  const drawn = drawAndRemember(candidates, genres, discoveryUseType.checked ? discoveryType?.id : undefined);
   const songs = drawn.map(({ id, ...song }) => song);
   renderDiscoveryResults({ kind: 'discovery', genres, region, vocal, songs });
+}
+
+function drawAndRemember(candidates, genres, typeId) {
+  const drawn = drawDiscoverySongs(candidates, genres, readIntroducedSongIds(), readPreviousRecommendationIds(), typeId);
+  saveIntroducedSongs(drawn);
+  return drawn;
 }
 
 moreDiscovery.addEventListener('click', showDiscoveryRecommendations);
@@ -885,8 +947,33 @@ function getResultTypeIndex() {
   return answers.find((answerIndex) => tiedTypes.includes(answerIndex));
 }
 
+function renderDiagnosisRecommendations(type) {
+  if (diagnosisRecommendationType === type) return;
+  diagnosisRecommendationRequest?.abort();
+  diagnosisCards.replaceChildren();
+  diagnosisStatus.hidden = false;
+  diagnosisStatus.textContent = '選曲リストを読み込んでいます…';
+  void loadDiscoveryCatalog().then(catalog => {
+    if (resultScreen.hidden || latestDiagnosisType !== type || diagnosisRecommendationType === type) return;
+    const candidates = findDiscoverySongs(catalog, [], regions[0], readRegisteredSongs());
+    const songs = drawAndRemember(candidates, [], type.id);
+    diagnosisRecommendationRequest = renderRecommendationCards(diagnosisCards, songs);
+    diagnosisRecommendationType = type;
+    diagnosisStatus.hidden = songs.length > 0;
+    diagnosisStatus.textContent = songs.length ? '' : 'おすすめできる曲が見つかりませんでした。';
+  }).catch(() => {
+    if (latestDiagnosisType === type) diagnosisStatus.textContent = '選曲リストを読み込めませんでした。';
+  });
+}
+
 function showResult() {
   const typeIndex = getResultTypeIndex();
+  latestDiagnosisType = types[typeIndex];
+  try {
+    localStorage.setItem(diagnosisTypeKey, latestDiagnosisType.id);
+  } catch {
+    // The type is still available during this session.
+  }
   const supportingQuestion = answers.findIndex((answerIndex) => answerIndex === typeIndex);
   const answerText = questions[supportingQuestion].answers[answers[supportingQuestion]];
   resultType.innerHTML = types[typeIndex].name.replace(/タイプ$/, '<span class="type-ending">タイプ</span>');
@@ -899,6 +986,7 @@ function showResult() {
   resultCharacter.alt = `${types[typeIndex].name}のキャラクター`;
   quiz.hidden = true;
   resultScreen.hidden = false;
+  renderDiagnosisRecommendations(latestDiagnosisType);
   resultScreen.classList.remove('result-entering');
   window.requestAnimationFrame(() => resultScreen.classList.add('result-entering'));
   resultType.focus();
@@ -910,6 +998,7 @@ showResultButton.addEventListener('click', () => {
 });
 
 reviewButton.addEventListener('click', () => {
+  stopSongPreview();
   currentQuestion = questions.length - 1;
   resultScreen.hidden = true;
   quiz.hidden = false;
@@ -918,6 +1007,7 @@ reviewButton.addEventListener('click', () => {
 });
 
 document.querySelector('#open-song-entry').addEventListener('click', () => {
+  stopSongPreview();
   resultScreen.hidden = true;
   songEntryScreen.hidden = false;
   renderSongFields();
@@ -978,12 +1068,14 @@ document.querySelector('#edit-songs').addEventListener('click', () => {
 document.querySelector('#back-to-result').addEventListener('click', () => {
   songEntryScreen.hidden = true;
   resultScreen.hidden = false;
+  renderDiagnosisRecommendations(latestDiagnosisType);
 });
 
 document.querySelector('#preview-back-result').addEventListener('click', () => {
   stopSongPreview();
   songPreviewScreen.hidden = true;
   resultScreen.hidden = false;
+  renderDiagnosisRecommendations(latestDiagnosisType);
 });
 
 nextButton.addEventListener('click', () => {
@@ -1017,6 +1109,8 @@ previousButton.addEventListener('click', () => moveToQuestion(currentQuestion - 
 restartButton.addEventListener('click', () => {
   const shouldRestart = window.confirm('回答を消して、1問目からやり直しますか？');
   if (!shouldRestart) return;
+  diagnosisRecommendationRequest?.abort();
+  diagnosisRecommendationType = undefined;
   answers.fill(null);
   currentQuestion = 0;
   quiz.hidden = true;
