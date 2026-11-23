@@ -36,10 +36,10 @@ const questions = [
   },
 ];
 const types = [
-  { id: 'lyrics', name: '言葉に惹かれるタイプ', description: '何気ない歌詞が自分の記憶や感情と重なる瞬間、歌詞の奥にある物語まで想像して聴くタイプです。ふと耳にしたフレーズを、あとから何度も思い返すことがあります。', insight: '言葉の意味や背景を確かめながら、曲に込められた気持ちを受け取る聴き方が表れています。', tip: '同じサビを1番と最後で聴き比べて、歌詞の景色がどう変わるか味わってみましょう。', character: lyricsCharacter },
-  { id: 'melody', name: 'メロディーを口ずさむタイプ', description: 'ふとした時にサビのメロディーが口からこぼれることが多いタイプです。歌いたくなるフレーズを何度もたどるうちに、曲がより日常の一部として溶け込みます。', insight: 'メロディー重視で、口ずさみたくなるフレーズを見つける聴き方が表れています。', tip: '同じ曲の弾き語り版で、歌声に隠れていたメロディーを追ってみましょう。', character: melodyCharacter },
-  { id: 'rhythm', name: '体でリズムに乗るタイプ', description: '好きだと気づく前に指や足、体全体で拍を刻むタイプです。ドラムやベースの重なりが、曲をもう一度聴きたくなる合図になります。', insight: '体でノリノリにリズムを受け取る聴き方が表れています。', tip: 'ライブ版で手拍子とドラムの重なりに耳を向けてみましょう。', character: rhythmCharacter },
-  { id: 'atmosphere', name: '曲の世界観に浸るタイプ', description: 'イントロから曲が描くストーリーや景色が浮かび、曲の世界観をじっくり味わうタイプです。音の余韻や空気ごと味わうことで、その曲ならではの風景を想像して楽曲を楽しみます。', insight: '切ない音色や明るい音色を感情や情景に置き換える聴き方が表れています。。', tip: 'イヤホンでメロディーや歌詞のフレーズひとつひとつを拾って、どんなストーリーの曲かを想像して聴いてみましょう。', character: atmosphereCharacter },
+  { id: 'lyrics', name: '言葉に惹かれるタイプ', description: '何気ない歌詞が自分の記憶や感情と重なる瞬間、歌詞の奥にある物語まで想像して聴くタイプです。ふと耳にしたフレーズを、あとから何度も思い返すことがあります。', shareDescription: '歌詞の言葉や物語に、自分の記憶や気持ちを重ねて聴くタイプです。心に残ったフレーズを何度も思い返します。', insight: '言葉の意味や背景を確かめながら、曲に込められた気持ちを受け取る聴き方が表れています。', tip: '同じサビを1番と最後で聴き比べて、歌詞の景色がどう変わるか味わってみましょう。', character: lyricsCharacter },
+  { id: 'melody', name: 'メロディーを口ずさむタイプ', description: 'ふとした時にサビのメロディーが口からこぼれることが多いタイプです。歌いたくなるフレーズを何度もたどるうちに、曲がより日常の一部として溶け込みます。', shareDescription: 'サビや印象的なメロディーを追いかけ、思わず口ずさみたくなるフレーズを見つけるタイプです。曲が日常に残る旋律を楽しみます。', insight: 'メロディー重視で、口ずさみたくなるフレーズを見つける聴き方が表れています。', tip: '同じ曲の弾き語り版で、歌声に隠れていたメロディーを追ってみましょう。', character: melodyCharacter },
+  { id: 'rhythm', name: '体でリズムに乗るタイプ', description: '好きだと気づく前に指や足、体全体で拍を刻むタイプです。ドラムやベースの重なりが、曲をもう一度聴きたくなる合図になります。', shareDescription: 'ビートを聴くと、指や足で自然に拍を刻みたくなるタイプです。ドラムやベースの重なりから曲のノリを楽しみます。', insight: '体でノリノリにリズムを受け取る聴き方が表れています。', tip: 'ライブ版で手拍子とドラムの重なりに耳を向けてみましょう。', character: rhythmCharacter },
+  { id: 'atmosphere', name: '曲の世界観に浸るタイプ', description: 'イントロから曲が描くストーリーや景色が浮かび、曲の世界観をじっくり味わうタイプです。音の余韻や空気ごと味わうことで、その曲ならではの風景を想像して楽曲を楽しみます。', shareDescription: '音が重なると、ふっと景色が浮かぶ。曲がつくる空気にじっくり浸るタイプです。', insight: '切ない音色や明るい音色を感情や情景に置き換える聴き方が表れています。', tip: 'イヤホンでメロディーや歌詞のフレーズひとつひとつを拾って、どんなストーリーの曲かを想像して聴いてみましょう。', character: atmosphereCharacter },
 ];
 
 const startButton = document.querySelector('#start-quiz');
@@ -74,6 +74,7 @@ const previewContent = document.querySelector('#song-preview-content');
 const keepThemeChoice = document.querySelector('#keep-theme-choice');
 const keepThemeSelect = document.querySelector('#keep-theme-select');
 const previewResultType = document.querySelector('#preview-result-type');
+const previewTypeIntro = document.querySelector('#preview-type-intro');
 const discoveryScreen = document.querySelector('#discovery-screen');
 const discoveryForm = document.querySelector('#discovery-form');
 const discoveryResults = document.querySelector('#discovery-results');
@@ -389,6 +390,14 @@ function renderSongPreview(songs, type = resultType.textContent, displayName = d
     previewResultType.textContent = `音楽タイプ：${type}`;
   } else {
     previewResultType.textContent = [displayName, `診断タイプ：${type}`].filter(Boolean).join('　');
+  }
+  const typeInfo = types.find(item => item.name === type);
+  previewTypeIntro.hidden = !typeInfo;
+  if (typeInfo) {
+    const character = previewTypeIntro.querySelector('.share-type-character');
+    character.src = typeInfo.character;
+    character.alt = `${typeInfo.name}のキャラクター`;
+    previewTypeIntro.querySelector('.share-type-description').textContent = typeInfo.shareDescription;
   }
   previewContent.replaceChildren(...songs.map(draft => createSongCard(draft, shared)));
   if (shared) songPreviewScreen.querySelector('h2').focus();
